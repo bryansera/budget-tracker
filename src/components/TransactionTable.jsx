@@ -1,61 +1,84 @@
 import React from 'react';
+import {
+  Paper, Table, TableBody, TableCell, TableContainer, TableHead,
+  TableRow, Typography, Chip, Select, MenuItem, Box
+} from '@mui/material';
+import { SmartToy } from '@mui/icons-material';
 
 function TransactionTable({ transactions, categories, onCategoryChange }) {
   return (
-    <>
-      <h2 style={{ marginTop: '30px' }}>
-        📋 Transactions
-        <span style={{ fontSize: '0.8em', color: '#667eea', marginLeft: '10px' }}>
-          (🤖 = AI categorized)
-        </span>
-      </h2>
-      <div style={{ overflowX: 'auto' }}>
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Description</th>
-              <th>Amount</th>
-              <th>Category</th>
-              <th>Source</th>
-            </tr>
-          </thead>
-          <tbody>
+    <Paper sx={{ mb: 3 }} elevation={2}>
+      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+        <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          📋 Transactions
+          <Chip
+            icon={<SmartToy />}
+            label="= AI categorized"
+            size="small"
+            variant="outlined"
+            color="primary"
+          />
+        </Typography>
+      </Box>
+      <TableContainer>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell><strong>Date</strong></TableCell>
+              <TableCell><strong>Description</strong></TableCell>
+              <TableCell align="right"><strong>Amount</strong></TableCell>
+              <TableCell><strong>Category</strong></TableCell>
+              <TableCell><strong>Source</strong></TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
             {transactions.map((t) => (
-              <tr key={t.id} className={t.aiCategorized ? 'ai-categorized' : ''}>
-                <td>{t.date}</td>
-                <td>
-                  {t.aiCategorized && '🤖 '}
-                  {t.description}
-                </td>
-                <td className={t.amount >= 0 ? 'amount-positive' : 'amount-negative'}>
+              <TableRow
+                key={t.id}
+                sx={{
+                  '&:hover': { bgcolor: 'action.hover' },
+                  bgcolor: t.aiCategorized ? 'action.selected' : 'inherit'
+                }}
+              >
+                <TableCell>{t.date}</TableCell>
+                <TableCell>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {t.aiCategorized && <SmartToy fontSize="small" color="primary" />}
+                    {t.description}
+                  </Box>
+                </TableCell>
+                <TableCell
+                  align="right"
+                  sx={{
+                    color: t.amount >= 0 ? 'success.main' : 'error.main',
+                    fontWeight: 'bold'
+                  }}
+                >
                   ${Math.abs(t.amount).toFixed(2)}
-                </td>
-                <td>
-                  <select
+                </TableCell>
+                <TableCell>
+                  <Select
                     value={t.category}
                     onChange={(e) => onCategoryChange(t.id, e.target.value)}
-                    style={{ 
-                      padding: '6px 12px',
-                      border: '1px solid #ddd',
-                      borderRadius: '6px',
-                      fontSize: '14px',
-                      background: 'white',
-                      cursor: 'pointer'
-                    }}
+                    size="small"
+                    sx={{ minWidth: 120 }}
                   >
                     {categories.map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
+                      <MenuItem key={cat} value={cat}>{cat}</MenuItem>
                     ))}
-                  </select>
-                </td>
-                <td style={{ fontSize: '0.9em', color: '#666' }}>{t.source}</td>
-              </tr>
+                  </Select>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2" color="text.secondary">
+                    {t.source}
+                  </Typography>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
-    </>
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Paper>
   );
 }
 

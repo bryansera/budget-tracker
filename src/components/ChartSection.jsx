@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
+import { Paper, Typography } from '@mui/material';
 import { Chart, ArcElement, Tooltip, Legend, DoughnutController } from 'chart.js';
 
-// Register Chart.js components including DoughnutController
 Chart.register(ArcElement, Tooltip, Legend, DoughnutController);
 
 function ChartSection({ categoryTotals }) {
@@ -11,13 +11,12 @@ function ChartSection({ categoryTotals }) {
   useEffect(() => {
     if (!chartRef.current || Object.keys(categoryTotals).length === 0) return;
 
-    // Destroy previous chart instance
     if (chartInstanceRef.current) {
       chartInstanceRef.current.destroy();
     }
 
     const ctx = chartRef.current.getContext('2d');
-    
+
     chartInstanceRef.current = new Chart(ctx, {
       type: 'doughnut',
       data: {
@@ -61,7 +60,6 @@ function ChartSection({ categoryTotals }) {
       }
     });
 
-    // Cleanup on unmount
     return () => {
       if (chartInstanceRef.current) {
         chartInstanceRef.current.destroy();
@@ -74,12 +72,12 @@ function ChartSection({ categoryTotals }) {
   }
 
   return (
-    <div className="chart-container">
-      <h3 style={{ marginBottom: '20px' }}>📊 Spending by Category</h3>
+    <Paper sx={{ p: 3, mb: 3 }} elevation={2}>
+      <Typography variant="h6" gutterBottom>📊 Spending by Category</Typography>
       <div style={{ height: '300px', position: 'relative' }}>
         <canvas ref={chartRef}></canvas>
       </div>
-    </div>
+    </Paper>
   );
 }
 
