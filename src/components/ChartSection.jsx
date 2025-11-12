@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from 'react';
-import { Chart, ArcElement, Tooltip, Legend } from 'chart.js';
+import { Chart, ArcElement, Tooltip, Legend, DoughnutController } from 'chart.js';
 
-// Register Chart.js components
-Chart.register(ArcElement, Tooltip, Legend);
+// Register Chart.js components including DoughnutController
+Chart.register(ArcElement, Tooltip, Legend, DoughnutController);
 
 function ChartSection({ categoryTotals }) {
   const chartRef = useRef(null);

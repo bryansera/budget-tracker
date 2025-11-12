@@ -42,18 +42,19 @@ export async function categorizeWithClaude(transactions, apiKey) {
     throw new Error('API key is required');
   }
 
-  const transactionList = transactions.map((t, i) => 
+  const transactionList = transactions.map((t, i) =>
     `${i + 1}. ${t.description} - $${Math.abs(t.amount)}`
   ).join('\n');
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01'
-    },
-    body: JSON.stringify({
+  try {
+    // Use the Anthropic SDK
+    const { Anthropic } = await import('@anthropic-ai/sdk');
+    const client = new Anthropic({
+      apiKey: apiKey,
+      dangerouslyAllowBrowser: true // Required for browser usage
+    });
+
+    const response = await client.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 2000,
       messages: [{
@@ -68,33 +69,29 @@ IMPORTANT: Respond ONLY with a valid JSON array. Each item must have "index" (th
 Example format:
 [{"index": 1, "category": "Groceries"}, {"index": 2, "category": "Dining"}]`
       }]
-    })
-  });
+    });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || `API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  
-  let categorizations;
-  try {
-    const responseText = data.content[0].text.trim();
-    const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-    categorizations = JSON.parse(jsonMatch ? jsonMatch[0] : responseText);
-  } catch (parseError) {
-    console.error('Error parsing Claude response:', parseError);
-    throw new Error('Invalid response format from AI');
-  }
-
-  return transactions.map((t, i) => {
-    const cat = categorizations.find(c => c.index === i + 1);
-    if (cat && CATEGORIES.includes(cat.category)) {
-      return { ...t, category: cat.category, aiCategorized: true };
+    let categorizations;
+    try {
+      const responseText = response.content[0].text.trim();
+      const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+      categorizations = JSON.parse(jsonMatch ? jsonMatch[0] : responseText);
+    } catch (parseError) {
+      console.error('Error parsing Claude response:', parseError);
+      throw new Error('Invalid response format from AI');
     }
-    return t;
-  });
+
+    return transactions.map((t, i) => {
+      const cat = categorizations.find(c => c.index === i + 1);
+      if (cat && CATEGORIES.includes(cat.category)) {
+        return { ...t, category: cat.category, aiCategorized: true };
+      }
+      return t;
+    });
+  } catch (error) {
+    console.error('Claude API error:', error);
+    throw error;
+  }
 }
 
 export async function generateInsights(transactions, apiKey) {
@@ -112,14 +109,14 @@ export async function generateInsights(transactions, apiKey) {
   const totalExpenses = Object.values(categoryTotals).reduce((sum, val) => sum + val, 0);
   const totalIncome = transactions.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01'
-    },
-    body: JSON.stringify({
+  try {
+    const { Anthropic } = await import('@anthropic-ai/sdk');
+    const client = new Anthropic({
+      apiKey: apiKey,
+      dangerouslyAllowBrowser: true
+    });
+
+    const response = await client.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1500,
       messages: [{
@@ -141,13 +138,11 @@ Provide insights about:
 
 Keep each insight concise (1-2 sentences) and actionable.`
       }]
-    })
-  });
+    });
 
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status}`);
+    return response.content[0].text;
+  } catch (error) {
+    console.error('Claude API error:', error);
+    throw error;
   }
-
-  const data = await response.json();
-  return data.content[0].text;
 }
