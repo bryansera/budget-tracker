@@ -1,6 +1,8 @@
 # 💰 Budget Tracker - AI Powered
 
-A modern web application for tracking expenses across credit cards, Venmo, and bank statements with AI-powered categorization using Claude.
+A modern **self-hosted** web application for tracking expenses across credit cards, Venmo, and bank statements with AI-powered categorization using Claude.
+
+> **⚠️ Self-Hosted App**: This runs locally on your computer. You'll need to set up your own Google OAuth credentials (one-time setup, ~5 minutes). This ensures your financial data stays completely private and under your control.
 
 ## ✨ Features
 
@@ -18,7 +20,22 @@ A modern web application for tracking expenses across credit cards, Venmo, and b
 
 - Node.js 18+ installed
 - A Claude API key from [Anthropic Console](https://console.anthropic.com/)
-- Google Cloud Project with Sheets API enabled
+- A free Google Cloud account (for OAuth setup)
+
+### Why Do I Need My Own Google OAuth Credentials?
+
+Unlike hosted apps (like Gmail or Google Drive apps) where you just "Sign in with Google," this is a **self-hosted application** that runs on your local computer (`http://localhost:5173`).
+
+**Google's OAuth security requires:**
+- Each app must register its URL (localhost in this case)
+- OAuth credentials are tied to specific URLs
+- Since everyone runs this on their own localhost, each person needs their own credentials
+
+**Benefits of this approach:**
+- Your financial data never leaves your control
+- No third-party server has access to your transactions
+- Complete privacy - only you and Google Sheets see your data
+- Free to run (except small Claude API costs)
 
 ### Setup Instructions
 
@@ -42,23 +59,45 @@ npm install
 
 **Cost**: Approximately $0.50/month for typical personal use (~500 transactions)
 
-#### 3. Set Up Google Sheets API
+#### 3. Set Up Google Sheets API (One-Time, ~5 minutes)
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project (or select existing)
-3. Enable "Google Sheets API"
-   - Navigate to "APIs & Services" > "Library"
-   - Search for "Google Sheets API"
-   - Click "Enable"
-4. Create OAuth 2.0 Credentials
-   - Go to "APIs & Services" > "Credentials"
-   - Click "Create Credentials" > "OAuth client ID"
-   - Configure OAuth consent screen if prompted (User Type: External)
-   - Choose "Web application"
-   - Add authorized JavaScript origins:
-     - `http://localhost:5173` (Vite default)
-     - `http://localhost:3000` (alternative)
-   - Copy your "Client ID" (ends with `.apps.googleusercontent.com`)
+**Don't worry - this is easier than it sounds! Just follow these steps:**
+
+1. **Create a Google Cloud Project**
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Click "Select a project" → "New Project"
+   - Name it "Budget Tracker" → Click "Create"
+   - Wait a few seconds for it to be created
+
+2. **Enable Google Sheets API**
+   - In the search bar at the top, type "Google Sheets API"
+   - Click on "Google Sheets API" in the results
+   - Click the blue "Enable" button
+
+3. **Create OAuth Credentials** (this allows "Sign in with Google" to work)
+   - In the left sidebar, click "Credentials"
+   - Click "Configure Consent Screen" at the top
+     - Choose "External" → Click "Create"
+     - App name: "Budget Tracker"
+     - User support email: (your email)
+     - Developer contact: (your email)
+     - Click "Save and Continue" (skip the Scopes page)
+     - Click "Save and Continue" (skip Test users)
+     - Click "Back to Dashboard"
+
+4. **Get Your Client ID**
+   - Click "Credentials" in left sidebar
+   - Click "+ Create Credentials" → "OAuth client ID"
+   - Application type: "Web application"
+   - Name: "Budget Tracker Web"
+   - Under "Authorized JavaScript origins" click "+ Add URI":
+     - Add: `http://localhost:5173`
+     - Add: `http://localhost:3000`
+   - Click "Create"
+   - **Copy the Client ID** (looks like `xxxxx.apps.googleusercontent.com`)
+   - Click "OK"
+
+**That's it!** Now when you click "Sign in with Google" in the app, it will work just like any other Google sign-in.
 
 #### 4. Configure Environment Variables
 

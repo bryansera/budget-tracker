@@ -1,6 +1,8 @@
 # Quick Setup Guide
 
-## ⚡ Quick Start (5 minutes)
+> **Note**: This is a self-hosted app that runs on your computer. You need your own Google OAuth credentials for the "Sign in with Google" button to work. This is a one-time 5-minute setup that ensures your financial data stays completely private.
+
+## ⚡ Quick Start
 
 ### 1. Install Dependencies
 ```bash
@@ -15,17 +17,29 @@ npm install
 3. Go to API Keys → Create Key
 4. Copy the key (starts with `sk-ant-api03-...`)
 
-#### Google Client ID
+#### Google Client ID (Why do I need this?)
+
+**Self-hosted apps require their own OAuth credentials.** Since this runs on your localhost, Google's security requires you to register your own app. This takes ~5 minutes and ensures your data stays private.
+
+**Steps:**
 1. Visit: https://console.cloud.google.com/
-2. Create a new project or select existing
-3. Enable "Google Sheets API" (APIs & Services → Library)
-4. Go to Credentials → Create Credentials → OAuth Client ID
-5. Configure OAuth consent screen if prompted (User Type: External)
-6. Select Application Type: **Web Application**
-7. Add Authorized JavaScript Origins:
-   - `http://localhost:5173` (Vite default)
-   - `http://localhost:3000` (if using different port)
-8. Copy the Client ID (ends with `.apps.googleusercontent.com`)
+2. Create a new project: Click "Select a project" → "New Project" → Name it "Budget Tracker"
+3. Enable "Google Sheets API":
+   - Search for "Google Sheets API" in the top search bar
+   - Click "Enable"
+4. Configure OAuth Consent Screen:
+   - Go to "APIs & Services" → "OAuth consent screen"
+   - Choose "External" → Fill in app name and your email → Save
+5. Create Credentials:
+   - Go to "Credentials" → "+ Create Credentials" → "OAuth Client ID"
+   - Application Type: **Web Application**
+   - Add Authorized JavaScript Origins:
+     - `http://localhost:5173`
+     - `http://localhost:3000`
+   - Click "Create"
+6. Copy the Client ID (ends with `.apps.googleusercontent.com`)
+
+**Done!** Now "Sign in with Google" will work just like any other app.
 
 ### 3. Configure Environment Variables
 
