@@ -22,10 +22,10 @@ import InsightsSection from './components/InsightsSection';
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#667eea',
+      main: '#1976d2', // Material Blue
     },
     secondary: {
-      main: '#764ba2',
+      main: '#9c27b0', // Material Purple (for accents only)
     },
   },
 });
