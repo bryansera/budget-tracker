@@ -12,6 +12,20 @@ export const CATEGORIES = [
   'Other'
 ];
 
+export const SUBCATEGORIES = {
+  'Groceries': ['Supermarket', 'Farmers Market', 'Specialty Store', 'Wholesale Club', 'Other'],
+  'Dining': ['Fast Food', 'Casual Dining', 'Fine Dining', 'Coffee Shop', 'Delivery', 'Other'],
+  'Transportation': ['Gas/Fuel', 'Public Transit', 'Rideshare', 'Parking', 'Auto Maintenance', 'Other'],
+  'Shopping': ['Clothing', 'Electronics', 'Home Goods', 'Online Shopping', 'Books/Media', 'Other'],
+  'Entertainment': ['Streaming', 'Movies/Theater', 'Sports/Fitness', 'Concerts/Events', 'Gaming', 'Hobbies', 'Other'],
+  'Utilities': ['Electricity', 'Water', 'Gas', 'Internet', 'Phone/Mobile', 'Other'],
+  'Healthcare': ['Pharmacy', 'Doctor Visit', 'Dental', 'Vision', 'Medical Supplies', 'Other'],
+  'Travel': ['Airfare', 'Lodging', 'Car Rental', 'Vacation Activities', 'Other'],
+  'Income': ['Salary', 'Freelance', 'Investment', 'Refund', 'Gift', 'Other'],
+  'Transfer': ['Bank Transfer', 'ATM Withdrawal', 'Credit Card Payment', 'Savings', 'Other'],
+  'Other': ['Miscellaneous']
+};
+
 const categorizationRules = {
   'Groceries': ['grocery', 'supermarket', 'whole foods', 'trader joe', 'safeway', 'kroger', 'walmart', 'target', 'costco', 'market', 'food lion', 'publix'],
   'Dining': ['restaurant', 'cafe', 'coffee', 'starbucks', 'chipotle', 'mcdonalds', 'pizza', 'burger', 'food', 'doordash', 'uber eats', 'grubhub', 'panera', 'subway'],
@@ -27,14 +41,14 @@ const categorizationRules = {
 
 export function categorizeTransactionBasic(description) {
   const desc = description.toLowerCase();
-  
+
   for (const [category, keywords] of Object.entries(categorizationRules)) {
     if (keywords.some(keyword => desc.includes(keyword))) {
-      return category;
+      return { category, subcategory: 'Other' };
     }
   }
-  
-  return 'Other';
+
+  return { category: 'Other', subcategory: 'Miscellaneous' };
 }
 
 export async function categorizeWithClaude(transactions, apiKey) {
@@ -65,15 +79,26 @@ export async function categorizeWithClaude(transactions, apiKey) {
         max_tokens: 4096,
         messages: [{
           role: 'user',
-          content: `You are a financial categorization expert. Categorize each transaction into EXACTLY ONE of these categories: ${CATEGORIES.join(', ')}.
+          content: `You are a financial categorization expert. Categorize each transaction into a category and subcategory, and explain your reasoning.
+
+Main Categories: ${CATEGORIES.join(', ')}
+
+Subcategories for each:
+${Object.entries(SUBCATEGORIES).map(([cat, subs]) => `${cat}: ${subs.join(', ')}`).join('\n')}
 
 Transactions:
 ${transactionList}
 
-IMPORTANT: Respond ONLY with a valid JSON array. Each item must have "index" (the transaction number) and "category" (from the list above). DO NOT include any text outside the JSON array. Make sure the JSON is valid and complete.
+IMPORTANT: Respond ONLY with a valid JSON array. Each item must have:
+- "index" (the transaction number)
+- "category" (main category from the list)
+- "subcategory" (subcategory from the appropriate list)
+- "reason" (1-2 sentence explanation of why you chose this categorization)
+
+Make sure the JSON is valid and complete. DO NOT include any text outside the JSON array.
 
 Example format:
-[{"index": 1, "category": "Groceries"}, {"index": 2, "category": "Dining"}]`
+[{"index": 1, "category": "Groceries", "subcategory": "Supermarket", "reason": "The transaction mentions 'Whole Foods' which is a well-known supermarket chain."}, {"index": 2, "category": "Dining", "subcategory": "Fast Food", "reason": "McDonald's is a fast food restaurant chain."}]`
         }]
       });
 
@@ -104,7 +129,16 @@ Example format:
         const cat = categorizations.find(c => c.index === idx + 1);
         if (cat && CATEGORIES.includes(cat.category)) {
           const originalIndex = i + idx;
-          results[originalIndex] = { ...results[originalIndex], category: cat.category, aiCategorized: true };
+          const subcategory = cat.subcategory && SUBCATEGORIES[cat.category]?.includes(cat.subcategory)
+            ? cat.subcategory
+            : 'Other';
+          results[originalIndex] = {
+            ...results[originalIndex],
+            category: cat.category,
+            subcategory: subcategory,
+            aiReason: cat.reason || 'No reason provided',
+            aiCategorized: true
+          };
         }
       });
     }

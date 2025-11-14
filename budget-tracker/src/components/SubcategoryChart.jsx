@@ -9,17 +9,17 @@ const COLORS = [
   '#c0a5e8', '#96e6a1', '#feca57', '#48dbfb'
 ];
 
-function ChartSection({ categoryTotals, onCategoryClick, selectedCategory }) {
+function SubcategoryChart({ subcategoryTotals, categoryName, onSubcategoryClick, selectedSubcategory }) {
   const chartData = useMemo(() => {
-    // Sort categories by value (largest first)
-    const sortedEntries = Object.entries(categoryTotals)
+    // Sort subcategories by value (largest first)
+    const sortedEntries = Object.entries(subcategoryTotals)
       .sort(([, a], [, b]) => b - a);
 
     return sortedEntries.map(([name, value]) => ({
       name,
       value
     }));
-  }, [categoryTotals]);
+  }, [subcategoryTotals]);
 
   const total = useMemo(() => {
     return chartData.reduce((sum, entry) => sum + entry.value, 0);
@@ -79,7 +79,9 @@ function ChartSection({ categoryTotals, onCategoryClick, selectedCategory }) {
 
   return (
     <Paper elevation={0} sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'divider' }}>
-      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>Spending by Category</Typography>
+      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+        {categoryName} Breakdown
+      </Typography>
       <ResponsiveContainer width="100%" height={600}>
         <PieChart margin={{ top: 40, right: 100, bottom: 40, left: 100 }}>
           <Pie
@@ -96,16 +98,16 @@ function ChartSection({ categoryTotals, onCategoryClick, selectedCategory }) {
             fill="#8884d8"
             dataKey="value"
             isAnimationActive={false}
-            onClick={(data) => onCategoryClick && onCategoryClick(data.name)}
+            onClick={(data) => onSubcategoryClick && onSubcategoryClick(data.name)}
             style={{ cursor: 'pointer' }}
           >
             {chartData.map((entry, index) => (
               <Cell
                 key={`cell-${index}`}
                 fill={COLORS[index % COLORS.length]}
-                stroke={selectedCategory === entry.name ? '#000' : '#fff'}
-                strokeWidth={selectedCategory === entry.name ? 3 : 1}
-                opacity={selectedCategory && selectedCategory !== entry.name ? 0.5 : 1}
+                stroke={selectedSubcategory === entry.name ? '#000' : '#fff'}
+                strokeWidth={selectedSubcategory === entry.name ? 3 : 1}
+                opacity={selectedSubcategory && selectedSubcategory !== entry.name ? 0.5 : 1}
               />
             ))}
           </Pie>
@@ -116,4 +118,4 @@ function ChartSection({ categoryTotals, onCategoryClick, selectedCategory }) {
   );
 }
 
-export default ChartSection;
+export default SubcategoryChart;

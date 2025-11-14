@@ -4,13 +4,13 @@ import {
   Button, TextField, Alert, Snackbar, Paper,
   CircularProgress, IconButton, InputAdornment, Drawer, List,
   ListItem, ListItemButton, ListItemIcon, ListItemText,
-  Divider, Badge
+  Divider, Badge, Grid
 } from '@mui/material';
 import {
   CloudUpload, Google, Refresh, Psychology, Download, Settings,
   Search as SearchIcon, Link as LinkIcon, Dashboard as DashboardIcon,
   Receipt as ReceiptIcon, Lightbulb as InsightIcon,
-  Folder as FolderIcon, History as HistoryIcon
+  Folder as FolderIcon, History as HistoryIcon, FilterAltOff
 } from '@mui/icons-material';
 import { CATEGORIES, categorizeWithClaude, generateInsights } from './utils/categorization';
 import { parseCSV, exportToCSV } from './utils/csvParser';
@@ -21,6 +21,7 @@ import {
 import TransactionTable from './components/TransactionTable';
 import StatsCards from './components/StatsCards';
 import ChartSection from './components/ChartSection';
+import SubcategoryChart from './components/SubcategoryChart';
 import InsightsSection from './components/InsightsSection';
 import SheetManager from './components/SheetManager';
 import ActivityLog from './components/ActivityLog';
@@ -86,7 +87,8 @@ function App() {
   const [isGoogleSignedIn, setIsGoogleSignedIn] = useState(false);
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
-  const [filterCategory, setFilterCategory] = useState('All');
+  const [selectedCategory, setSelectedCategory] = useState(null); // null or category name
+  const [selectedSubcategory, setSelectedSubcategory] = useState(null); // null or subcategory name
   const [searchQuery, setSearchQuery] = useState('');
   const [spreadsheetId, setSpreadsheetId] = useState(localStorage.getItem('budgetSpreadsheetId') || '');
   const [claudeApiKey, setClaudeApiKey] = useState(localStorage.getItem('claudeApiKey') || '');
@@ -140,6 +142,33 @@ function App() {
 
   const showSnackbar = (message, severity = 'info') => {
     setSnackbar({ open: true, message, severity });
+  };
+
+  // Filter handling
+  const handleCategoryClick = (category) => {
+    if (selectedCategory === category) {
+      // Clicking same category - reset
+      setSelectedCategory(null);
+      setSelectedSubcategory(null);
+    } else {
+      setSelectedCategory(category);
+      setSelectedSubcategory(null); // Reset subcategory when changing category
+    }
+  };
+
+  const handleSubcategoryClick = (subcategory) => {
+    if (selectedSubcategory === subcategory) {
+      // Clicking same subcategory - go back to category level
+      setSelectedSubcategory(null);
+    } else {
+      setSelectedSubcategory(subcategory);
+    }
+  };
+
+  const resetFilters = () => {
+    setSelectedCategory(null);
+    setSelectedSubcategory(null);
+    setSearchQuery('');
   };
 
   // Activity logging
@@ -418,19 +447,32 @@ function App() {
     netBalance: transactions.reduce((sum, t) => sum + t.amount, 0)
   };
 
+  // Category totals excluding Transfer category
   const categoryTotals = transactions.reduce((acc, t) => {
-    if (t.amount < 0) {
+    if (t.amount < 0 && t.category !== 'Transfer') {
       acc[t.category] = (acc[t.category] || 0) + Math.abs(t.amount);
     }
     return acc;
   }, {});
 
+  // Subcategory totals for selected category
+  const subcategoryTotals = selectedCategory
+    ? transactions.reduce((acc, t) => {
+        if (t.amount < 0 && t.category === selectedCategory && t.subcategory) {
+          acc[t.subcategory] = (acc[t.subcategory] || 0) + Math.abs(t.amount);
+        }
+        return acc;
+      }, {})
+    : {};
+
   const filteredTransactions = transactions.filter(t => {
-    const matchesCategory = filterCategory === 'All' || t.category === filterCategory;
+    const matchesCategory = !selectedCategory || t.category === selectedCategory;
+    const matchesSubcategory = !selectedSubcategory || t.subcategory === selectedSubcategory;
     const matchesSearch = !searchQuery ||
       t.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.category.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
+      t.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (t.subcategory && t.subcategory.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesCategory && matchesSubcategory && matchesSearch;
   });
 
   const drawerWidth = 240;
@@ -709,7 +751,50 @@ function App() {
                 {transactions.length > 0 ? (
                   <>
                     <StatsCards stats={stats} />
-                    <ChartSection categoryTotals={categoryTotals} />
+
+                    {/* Filter Reset Button */}
+                    {(selectedCategory || selectedSubcategory || searchQuery) && (
+                      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          {selectedSubcategory
+                            ? `Filtered by: ${selectedCategory} > ${selectedSubcategory}`
+                            : selectedCategory
+                            ? `Filtered by: ${selectedCategory}`
+                            : searchQuery
+                            ? `Searching: "${searchQuery}"`
+                            : ''}
+                        </Typography>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<FilterAltOff />}
+                          onClick={resetFilters}
+                        >
+                          Reset Filters
+                        </Button>
+                      </Box>
+                    )}
+
+                    {/* Charts Grid */}
+                    <Grid container spacing={3}>
+                      <Grid item xs={12} md={selectedCategory ? 6 : 12}>
+                        <ChartSection
+                          categoryTotals={categoryTotals}
+                          onCategoryClick={handleCategoryClick}
+                          selectedCategory={selectedCategory}
+                        />
+                      </Grid>
+                      {selectedCategory && Object.keys(subcategoryTotals).length > 0 && (
+                        <Grid item xs={12} md={6}>
+                          <SubcategoryChart
+                            subcategoryTotals={subcategoryTotals}
+                            categoryName={selectedCategory}
+                            onSubcategoryClick={handleSubcategoryClick}
+                            selectedSubcategory={selectedSubcategory}
+                          />
+                        </Grid>
+                      )}
+                    </Grid>
                   </>
                 ) : (
                   !loading && (
@@ -738,7 +823,29 @@ function App() {
 
                 {transactions.length > 0 ? (
                   <>
-                    <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
+                    {/* Charts Grid */}
+                    <Grid container spacing={3}>
+                      <Grid item xs={12} md={selectedCategory ? 6 : 12}>
+                        <ChartSection
+                          categoryTotals={categoryTotals}
+                          onCategoryClick={handleCategoryClick}
+                          selectedCategory={selectedCategory}
+                        />
+                      </Grid>
+                      {selectedCategory && Object.keys(subcategoryTotals).length > 0 && (
+                        <Grid item xs={12} md={6}>
+                          <SubcategoryChart
+                            subcategoryTotals={subcategoryTotals}
+                            categoryName={selectedCategory}
+                            onSubcategoryClick={handleSubcategoryClick}
+                            selectedSubcategory={selectedSubcategory}
+                          />
+                        </Grid>
+                      )}
+                    </Grid>
+
+                    {/* Search and Filter Reset */}
+                    <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
                       <TextField
                         fullWidth
                         placeholder="Search transactions..."
@@ -755,20 +862,28 @@ function App() {
                           }
                         }}
                       />
-                      <TextField
-                        select
-                        value={filterCategory}
-                        onChange={(e) => setFilterCategory(e.target.value)}
-                        slotProps={{ select: { native: true } }}
-                        sx={{ minWidth: 200 }}
-                        size="small"
-                      >
-                        <option value="All">All Categories</option>
-                        {CATEGORIES.map(cat => (
-                          <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                      </TextField>
+                      {(selectedCategory || selectedSubcategory || searchQuery) && (
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<FilterAltOff />}
+                          onClick={resetFilters}
+                          sx={{ whiteSpace: 'nowrap' }}
+                        >
+                          Reset
+                        </Button>
+                      )}
                     </Box>
+
+                    {(selectedCategory || selectedSubcategory) && (
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          {selectedSubcategory
+                            ? `Filtered by: ${selectedCategory} > ${selectedSubcategory}`
+                            : `Filtered by: ${selectedCategory}`}
+                        </Typography>
+                      </Box>
+                    )}
 
                     <TransactionTable
                       transactions={filteredTransactions}

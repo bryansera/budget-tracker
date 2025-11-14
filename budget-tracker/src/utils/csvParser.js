@@ -57,12 +57,15 @@ export function parseCSV(content, filename) {
     // Validate amount
     if (isNaN(amount)) continue;
     
+    const { category, subcategory } = categorizeTransactionBasic(description);
+
     transactions.push({
       id: `${date}-${description}-${amount}-${i}`,
       date,
       description: description || 'Unknown Transaction',
       amount,
-      category: categorizeTransactionBasic(description),
+      category,
+      subcategory,
       source: filename,
       aiCategorized: false
     });
@@ -76,18 +79,20 @@ export function parseCSV(content, filename) {
 }
 
 export function exportToCSV(transactions) {
-  const headers = ['Date', 'Description', 'Amount', 'Category', 'Source', 'AI Categorized'];
+  const headers = ['Date', 'Description', 'Amount', 'Category', 'Subcategory', 'Source', 'AI Categorized', 'AI Reason'];
   const rows = transactions.map(t => [
     t.date,
     `"${t.description}"`,
     t.amount,
     t.category,
+    t.subcategory || '',
     t.source,
-    t.aiCategorized ? 'Yes' : 'No'
+    t.aiCategorized ? 'Yes' : 'No',
+    t.aiReason ? `"${t.aiReason.replace(/"/g, '""')}"` : '' // Escape quotes in reason
   ]);
-  
+
   const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-  
+
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
