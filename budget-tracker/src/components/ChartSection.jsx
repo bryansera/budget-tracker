@@ -36,7 +36,8 @@ function ChartSection({ categoryTotals, onCategoryClick, selectedCategory }) {
     if (!chartData[index]) return null;
 
     const RADIAN = Math.PI / 180;
-    const radius = outerRadius + 35;
+    // Position label further out - use percentage-based positioning
+    const radius = outerRadius * 1.3;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
@@ -50,7 +51,7 @@ function ChartSection({ categoryTotals, onCategoryClick, selectedCategory }) {
         fill="#000"
         textAnchor={textAnchor}
         dominantBaseline="central"
-        style={{ fontWeight: 'bold', fontSize: '13px' }}
+        style={{ fontWeight: 'bold', fontSize: '12px' }}
       >
         {`${name || chartData[index].name} (${(percent * 100).toFixed(1)}%)`}
       </text>
@@ -80,8 +81,8 @@ function ChartSection({ categoryTotals, onCategoryClick, selectedCategory }) {
   return (
     <Paper elevation={0} sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'divider' }}>
       <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>Spending by Category</Typography>
-      <ResponsiveContainer width="100%" height={600}>
-        <PieChart margin={{ top: 40, right: 100, bottom: 40, left: 100 }}>
+      <ResponsiveContainer width="100%" height={600} minWidth={500}>
+        <PieChart>
           <Pie
             data={chartData}
             cx="50%"
@@ -91,8 +92,8 @@ function ChartSection({ categoryTotals, onCategoryClick, selectedCategory }) {
               strokeWidth: 1
             }}
             label={renderCustomizedLabel}
-            outerRadius={120}
-            innerRadius={60}
+            outerRadius="35%"
+            innerRadius="20%"
             fill="#8884d8"
             dataKey="value"
             isAnimationActive={false}

@@ -36,7 +36,8 @@ function SubcategoryChart({ subcategoryTotals, categoryName, onSubcategoryClick,
     if (!chartData[index]) return null;
 
     const RADIAN = Math.PI / 180;
-    const radius = outerRadius + 35;
+    // Position label further out - use percentage-based positioning
+    const radius = outerRadius * 1.3;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
@@ -50,7 +51,7 @@ function SubcategoryChart({ subcategoryTotals, categoryName, onSubcategoryClick,
         fill="#000"
         textAnchor={textAnchor}
         dominantBaseline="central"
-        style={{ fontWeight: 'bold', fontSize: '13px' }}
+        style={{ fontWeight: 'bold', fontSize: '12px' }}
       >
         {`${name || chartData[index].name} (${(percent * 100).toFixed(1)}%)`}
       </text>
@@ -82,8 +83,8 @@ function SubcategoryChart({ subcategoryTotals, categoryName, onSubcategoryClick,
       <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
         {categoryName} Breakdown
       </Typography>
-      <ResponsiveContainer width="100%" height={600}>
-        <PieChart margin={{ top: 40, right: 100, bottom: 40, left: 100 }}>
+      <ResponsiveContainer width="100%" height={600} minWidth={500}>
+        <PieChart>
           <Pie
             data={chartData}
             cx="50%"
@@ -93,8 +94,8 @@ function SubcategoryChart({ subcategoryTotals, categoryName, onSubcategoryClick,
               strokeWidth: 1
             }}
             label={renderCustomizedLabel}
-            outerRadius={120}
-            innerRadius={60}
+            outerRadius="35%"
+            innerRadius="20%"
             fill="#8884d8"
             dataKey="value"
             isAnimationActive={false}
