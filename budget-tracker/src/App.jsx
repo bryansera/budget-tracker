@@ -18,6 +18,7 @@ import TransactionTable from './components/TransactionTable';
 import StatsCards from './components/StatsCards';
 import ChartSection from './components/ChartSection';
 import InsightsSection from './components/InsightsSection';
+import SheetManager from './components/SheetManager';
 
 const theme = createTheme({
   palette: {
@@ -33,7 +34,22 @@ const theme = createTheme({
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 function App() {
-  const [transactions, setTransactions] = useState([]);
+  // Initialize sheets from localStorage or create default sheet
+  const [sheets, setSheets] = useState(() => {
+    const saved = localStorage.getItem('budgetSheets');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    return [{
+      id: Date.now().toString(),
+      name: 'Budget 1',
+      transactions: []
+    }];
+  });
+  const [activeSheetId, setActiveSheetId] = useState(() => {
+    const saved = localStorage.getItem('activeSheetId');
+    return saved || sheets[0]?.id;
+  });
   const [isGoogleSignedIn, setIsGoogleSignedIn] = useState(false);
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
@@ -43,6 +59,20 @@ function App() {
   const [claudeApiKey, setClaudeApiKey] = useState(localStorage.getItem('claudeApiKey') || '');
   const [insights, setInsights] = useState(null);
   const [showApiKeyInput, setShowApiKeyInput] = useState(!localStorage.getItem('claudeApiKey'));
+
+  // Get active sheet
+  const activeSheet = sheets.find(s => s.id === activeSheetId) || sheets[0];
+  const transactions = activeSheet?.transactions || [];
+
+  // Save sheets to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('budgetSheets', JSON.stringify(sheets));
+  }, [sheets]);
+
+  // Save active sheet ID to localStorage
+  useEffect(() => {
+    localStorage.setItem('activeSheetId', activeSheetId);
+  }, [activeSheetId]);
 
   useEffect(() => {
     const loadGoogleAPI = async () => {
@@ -66,6 +96,44 @@ function App() {
 
   const showSnackbar = (message, severity = 'info') => {
     setSnackbar({ open: true, message, severity });
+  };
+
+  // Sheet management functions
+  const handleSheetCreate = (name) => {
+    const newSheet = {
+      id: Date.now().toString(),
+      name,
+      transactions: []
+    };
+    setSheets([...sheets, newSheet]);
+    setActiveSheetId(newSheet.id);
+    showSnackbar(`Created sheet "${name}"`, 'success');
+  };
+
+  const handleSheetDelete = (sheetId) => {
+    if (sheets.length === 1) {
+      showSnackbar('Cannot delete the last sheet', 'error');
+      return;
+    }
+    const updatedSheets = sheets.filter(s => s.id !== sheetId);
+    setSheets(updatedSheets);
+    if (activeSheetId === sheetId) {
+      setActiveSheetId(updatedSheets[0].id);
+    }
+    showSnackbar('Sheet deleted', 'success');
+  };
+
+  const handleSheetSelect = (sheetId) => {
+    setActiveSheetId(sheetId);
+  };
+
+  // Update transactions for active sheet
+  const updateActiveSheetTransactions = (newTransactions) => {
+    setSheets(sheets.map(sheet =>
+      sheet.id === activeSheetId
+        ? { ...sheet, transactions: newTransactions }
+        : sheet
+    ));
   };
 
   const handleGoogleSignIn = async () => {
@@ -117,7 +185,7 @@ function App() {
       }
 
       const combined = [...transactions, ...newTransactions];
-      setTransactions(combined);
+      updateActiveSheetTransactions(combined);
 
       if (isGoogleSignedIn) {
         await handleSaveToSheets(newTransactions);
@@ -164,7 +232,7 @@ function App() {
     try {
       setLoading(true);
       const loaded = await loadTransactions(spreadsheetId);
-      setTransactions(loaded);
+      updateActiveSheetTransactions(loaded);
       showSnackbar(`Loaded ${loaded.length} transactions from Google Sheets!`, 'success');
     } catch (error) {
       showSnackbar(`Failed to load: ${error.message}`, 'error');
@@ -182,7 +250,7 @@ function App() {
     try {
       setLoading(true);
       const updated = await categorizeWithClaude(transactions, claudeApiKey);
-      setTransactions(updated);
+      updateActiveSheetTransactions(updated);
       showSnackbar('✨ All transactions re-categorized with AI!', 'success');
 
       if (isGoogleSignedIn && spreadsheetId) {
@@ -224,7 +292,7 @@ function App() {
 
     const updated = [...transactions];
     updated[index] = { ...updated[index], category: newCategory, aiCategorized: false };
-    setTransactions(updated);
+    updateActiveSheetTransactions(updated);
 
     if (isGoogleSignedIn && spreadsheetId) {
       try {
@@ -324,6 +392,15 @@ function App() {
             </Button>
           </Box>
         )}
+
+        {/* Sheet Management */}
+        <SheetManager
+          sheets={sheets}
+          activeSheetId={activeSheetId}
+          onSheetSelect={handleSheetSelect}
+          onSheetCreate={handleSheetCreate}
+          onSheetDelete={handleSheetDelete}
+        />
 
         {/* Google Sheets Integration */}
         <Paper sx={{ p: 3, mb: 3 }}>
