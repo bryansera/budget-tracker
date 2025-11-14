@@ -30,9 +30,9 @@ function SheetManager({ sheets, activeSheetId, onSheetSelect, onSheetCreate, onS
 
   return (
     <>
-      <Paper sx={{ p: 2, mb: 3 }}>
+      <Paper elevation={0} sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'divider' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">Sheets</Typography>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>Budget Sheets</Typography>
           <Button
             variant="contained"
             size="small"
@@ -43,11 +43,16 @@ function SheetManager({ sheets, activeSheetId, onSheetSelect, onSheetCreate, onS
           </Button>
         </Box>
 
-        <List dense>
+        <List dense disablePadding>
           {sheets.map((sheet) => (
             <ListItem
               key={sheet.id}
               disablePadding
+              sx={{
+                borderBottom: '1px solid',
+                borderColor: 'divider',
+                '&:last-child': { borderBottom: 'none' }
+              }}
               secondaryAction={
                 sheets.length > 1 && (
                   <IconButton
@@ -64,10 +69,19 @@ function SheetManager({ sheets, activeSheetId, onSheetSelect, onSheetCreate, onS
               <ListItemButton
                 selected={sheet.id === activeSheetId}
                 onClick={() => onSheetSelect(sheet.id)}
+                sx={{
+                  '&.Mui-selected': {
+                    bgcolor: 'primary.50',
+                    '&:hover': {
+                      bgcolor: 'primary.100',
+                    },
+                  },
+                }}
               >
                 <ListItemText
                   primary={sheet.name}
                   secondary={`${sheet.transactions.length} transactions`}
+                  primaryTypographyProps={{ fontWeight: sheet.id === activeSheetId ? 600 : 400 }}
                 />
               </ListItemButton>
             </ListItem>

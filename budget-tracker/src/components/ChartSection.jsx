@@ -75,8 +75,8 @@ function ChartSection({ categoryTotals }) {
   };
 
   return (
-    <Paper sx={{ p: 3, mb: 3 }} elevation={2}>
-      <Typography variant="h6" gutterBottom>📊 Spending by Category</Typography>
+    <Paper elevation={0} sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'divider' }}>
+      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>Spending by Category</Typography>
       <ResponsiveContainer width="100%" height={500}>
         <PieChart>
           <Pie

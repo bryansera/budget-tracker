@@ -2,11 +2,15 @@ import { useState, useEffect } from 'react';
 import {
   ThemeProvider, createTheme, CssBaseline, Container, Box, Typography,
   AppBar, Toolbar, Button, TextField, Alert, Snackbar, Paper,
-  CircularProgress, Chip, IconButton, InputAdornment
+  CircularProgress, Chip, IconButton, InputAdornment, Drawer, List,
+  ListItem, ListItemButton, ListItemIcon, ListItemText, Tabs, Tab,
+  Divider
 } from '@mui/material';
 import {
   CloudUpload, Google, Refresh, Psychology, Download, Settings,
-  Search as SearchIcon, Link as LinkIcon
+  Search as SearchIcon, Link as LinkIcon, Dashboard as DashboardIcon,
+  Receipt as ReceiptIcon, InsertChart as ChartIcon, Lightbulb as InsightIcon,
+  Folder as FolderIcon
 } from '@mui/icons-material';
 import { CATEGORIES, categorizeWithClaude, generateInsights } from './utils/categorization';
 import { parseCSV, exportToCSV } from './utils/csvParser';
@@ -22,11 +26,39 @@ import SheetManager from './components/SheetManager';
 
 const theme = createTheme({
   palette: {
+    mode: 'light',
     primary: {
-      main: '#1976d2', // Material Blue
+      main: '#6366f1', // Indigo
     },
     secondary: {
-      main: '#9c27b0', // Material Purple (for accents only)
+      main: '#8b5cf6', // Purple accent
+    },
+    background: {
+      default: '#f8f9fa',
+      paper: '#ffffff',
+    },
+    text: {
+      primary: '#1f2937',
+      secondary: '#6b7280',
+    },
+    divider: '#e5e7eb',
+  },
+  shape: {
+    borderRadius: 8,
+  },
+  shadows: [
+    'none',
+    '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+    '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+    '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+    ...Array(20).fill('none'),
+  ],
+  typography: {
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    h6: {
+      fontWeight: 600,
+      fontSize: '1.125rem',
     },
   },
 });
@@ -59,6 +91,7 @@ function App() {
   const [claudeApiKey, setClaudeApiKey] = useState(localStorage.getItem('claudeApiKey') || '');
   const [insights, setInsights] = useState(null);
   const [showApiKeyInput, setShowApiKeyInput] = useState(!localStorage.getItem('claudeApiKey'));
+  const [currentTab, setCurrentTab] = useState(0);
 
   // Get active sheet
   const activeSheet = sheets.find(s => s.id === activeSheetId) || sheets[0];
@@ -330,211 +363,413 @@ function App() {
     return matchesCategory && matchesSearch;
   });
 
+  const drawerWidth = 240;
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
 
-      <AppBar position="static" elevation={0}>
-        <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-            💰 Budget Tracker
-            <Chip label="AI POWERED" size="small" color="secondary" />
-          </Typography>
-          {isGoogleSignedIn ? (
-            <Button color="inherit" onClick={handleGoogleSignOut} startIcon={<Google />}>
-              Sign Out
-            </Button>
-          ) : (
-            <Button color="inherit" onClick={handleGoogleSignIn} startIcon={<Google />}>
-              Sign in with Google
-            </Button>
-          )}
-        </Toolbar>
-      </AppBar>
-
-      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-        <Typography variant="subtitle1" color="text.secondary" gutterBottom>
-          Smart expense tracking with Claude AI categorization and insights
-        </Typography>
-
-        {/* API Key Setup */}
-        {showApiKeyInput ? (
-          <Paper sx={{ p: 3, mb: 3, bgcolor: 'warning.light', color: 'warning.contrastText' }}>
-            <Typography variant="h6" gutterBottom>🤖 Enable AI Features</Typography>
-            <Typography variant="body2" sx={{ mb: 2 }}>
-              Enter your Claude API key to unlock smart categorization and insights.
-              <br />
-              <small>Get your key at: <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer">console.anthropic.com</a></small>
+      <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+        {/* Sidebar */}
+        <Drawer
+          variant="permanent"
+          sx={{
+            width: drawerWidth,
+            flexShrink: 0,
+            '& .MuiDrawer-paper': {
+              width: drawerWidth,
+              boxSizing: 'border-box',
+              borderRight: '1px solid',
+              borderColor: 'divider',
+              bgcolor: 'background.paper',
+            },
+          }}
+        >
+          <Box sx={{ p: 3, pb: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.primary' }}>
+              Budget Tracker
             </Typography>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <TextField
-                fullWidth
-                type="password"
-                placeholder="sk-ant-api03-..."
-                value={claudeApiKey}
-                onChange={(e) => setClaudeApiKey(e.target.value)}
-                size="small"
-              />
-              <Button variant="contained" onClick={handleSaveApiKey}>
-                Save Key
-              </Button>
-              {claudeApiKey && (
-                <Button variant="outlined" onClick={() => setShowApiKeyInput(false)}>
-                  Cancel
-                </Button>
-              )}
-            </Box>
-          </Paper>
-        ) : (
-          <Box sx={{ mb: 2 }}>
-            <Button startIcon={<Settings />} onClick={() => setShowApiKeyInput(true)}>
-              Update API Key
-            </Button>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              AI-Powered Analytics
+            </Typography>
           </Box>
-        )}
 
-        {/* Sheet Management */}
-        <SheetManager
-          sheets={sheets}
-          activeSheetId={activeSheetId}
-          onSheetSelect={handleSheetSelect}
-          onSheetCreate={handleSheetCreate}
-          onSheetDelete={handleSheetDelete}
-        />
+          <List sx={{ px: 2 }}>
+            <ListItem disablePadding sx={{ mb: 0.5 }}>
+              <ListItemButton
+                selected={currentTab === 0}
+                onClick={() => setCurrentTab(0)}
+                sx={{ borderRadius: 1 }}
+              >
+                <ListItemIcon sx={{ minWidth: 36 }}>
+                  <DashboardIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText primary="Overview" />
+              </ListItemButton>
+            </ListItem>
+            <ListItem disablePadding sx={{ mb: 0.5 }}>
+              <ListItemButton
+                selected={currentTab === 1}
+                onClick={() => setCurrentTab(1)}
+                sx={{ borderRadius: 1 }}
+              >
+                <ListItemIcon sx={{ minWidth: 36 }}>
+                  <ReceiptIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText primary="Transactions" />
+              </ListItemButton>
+            </ListItem>
+            <ListItem disablePadding sx={{ mb: 0.5 }}>
+              <ListItemButton
+                selected={currentTab === 2}
+                onClick={() => setCurrentTab(2)}
+                sx={{ borderRadius: 1 }}
+              >
+                <ListItemIcon sx={{ minWidth: 36 }}>
+                  <FolderIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText primary="Sheets" />
+              </ListItemButton>
+            </ListItem>
+            {claudeApiKey && (
+              <ListItem disablePadding sx={{ mb: 0.5 }}>
+                <ListItemButton
+                  selected={currentTab === 3}
+                  onClick={() => setCurrentTab(3)}
+                  sx={{ borderRadius: 1 }}
+                >
+                  <ListItemIcon sx={{ minWidth: 36 }}>
+                    <InsightIcon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText primary="Insights" />
+                </ListItemButton>
+              </ListItem>
+            )}
+          </List>
 
-        {/* Google Sheets Integration */}
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="h6" gutterBottom>🔐 Google Sheets Integration</Typography>
-          <Typography variant="body2" sx={{ mb: 2 }}>
-            {isGoogleSignedIn ? '✓ Connected to Google Sheets' : 'Sign in to save your data'}
-          </Typography>
-          {isGoogleSignedIn && (
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              <Button variant="outlined" startIcon={<Refresh />} onClick={handleLoadTransactions}>
-                Reload from Sheets
+          <Divider sx={{ mt: 'auto', mx: 2 }} />
+
+          <Box sx={{ p: 2 }}>
+            {isGoogleSignedIn ? (
+              <Button
+                fullWidth
+                variant="outlined"
+                size="small"
+                onClick={handleGoogleSignOut}
+                startIcon={<Google />}
+                sx={{ justifyContent: 'flex-start' }}
+              >
+                Sign Out
               </Button>
-              {spreadsheetId && (
-                <Button
-                  variant="outlined"
-                  startIcon={<LinkIcon />}
-                  href={`https://docs.google.com/spreadsheets/d/${spreadsheetId}`}
-                  target="_blank"
-                >
-                  View Spreadsheet
-                </Button>
-              )}
-            </Box>
-          )}
-        </Paper>
+            ) : (
+              <Button
+                fullWidth
+                variant="outlined"
+                size="small"
+                onClick={handleGoogleSignIn}
+                startIcon={<Google />}
+                sx={{ justifyContent: 'flex-start' }}
+              >
+                Sign in
+              </Button>
+            )}
+          </Box>
+        </Drawer>
 
-        {/* File Upload */}
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="h6" gutterBottom>📁 Upload Statements</Typography>
-          <Typography variant="body2" sx={{ mb: 2 }}>
-            Upload CSV files from your bank, credit card, or Venmo
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Button
-              variant="contained"
-              component="label"
-              startIcon={<CloudUpload />}
-              disabled={loading}
-            >
-              Upload CSV
-              <input
-                type="file"
-                accept=".csv"
-                hidden
-                onChange={handleFileUpload}
-              />
-            </Button>
-            {claudeApiKey && transactions.length > 0 && (
+        {/* Main Content */}
+        <Box component="main" sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
+          {/* Top Bar */}
+          <Box sx={{
+            bgcolor: 'background.paper',
+            borderBottom: 1,
+            borderColor: 'divider',
+            px: 4,
+            py: 2,
+          }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box>
+                <Typography variant="h6" sx={{ mb: 0.5 }}>
+                  {activeSheet?.name || 'Budget Tracker'}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {transactions.length} transactions
+                </Typography>
+              </Box>
+
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                {showApiKeyInput ? (
+                  <IconButton size="small" onClick={() => setShowApiKeyInput(true)}>
+                    <Settings fontSize="small" />
+                  </IconButton>
+                ) : (
+                  <IconButton size="small" onClick={() => setShowApiKeyInput(true)}>
+                    <Settings fontSize="small" />
+                  </IconButton>
+                )}
+              </Box>
+            </Box>
+          </Box>
+
+          <Container maxWidth="xl" sx={{ mt: 3, mb: 4, px: 4 }}>
+            {/* API Key Setup */}
+            {showApiKeyInput && (
+              <Paper sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'warning.main', bgcolor: 'warning.50' }}>
+                <Typography variant="h6" gutterBottom sx={{ color: 'text.primary' }}>Enable AI Features</Typography>
+                <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
+                  Enter your Claude API key to unlock smart categorization and insights.
+                  <br />
+                  <small>Get your key at: <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer">console.anthropic.com</a></small>
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <TextField
+                    fullWidth
+                    type="password"
+                    placeholder="sk-ant-api03-..."
+                    value={claudeApiKey}
+                    onChange={(e) => setClaudeApiKey(e.target.value)}
+                    size="small"
+                  />
+                  <Button variant="contained" onClick={handleSaveApiKey}>
+                    Save Key
+                  </Button>
+                  {claudeApiKey && (
+                    <Button variant="outlined" onClick={() => setShowApiKeyInput(false)}>
+                      Cancel
+                    </Button>
+                  )}
+                </Box>
+              </Paper>
+            )}
+
+            {loading && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+                <CircularProgress />
+              </Box>
+            )}
+
+            {/* Tab Content */}
+            {currentTab === 0 && (
+              // Overview Tab
               <>
-                <Button
-                  variant="contained"
-                  color="secondary"
-                  startIcon={<Refresh />}
-                  onClick={handleRecategorizeAll}
-                  disabled={loading}
-                >
-                  Re-categorize All
-                </Button>
-                <Button
-                  variant="contained"
-                  color="secondary"
-                  startIcon={<Psychology />}
-                  onClick={handleGenerateInsights}
-                  disabled={loading}
-                >
-                  Generate Insights
-                </Button>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h5" sx={{ mb: 1, fontWeight: 600 }}>
+                    Overview
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Financial summary and spending analysis
+                  </Typography>
+                </Box>
+
+                <Paper sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'divider' }}>
+                  <Typography variant="h6" gutterBottom>Upload Transactions</Typography>
+                  <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
+                    Upload CSV files from your bank, credit card, or Venmo
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    <Button
+                      variant="contained"
+                      component="label"
+                      startIcon={<CloudUpload />}
+                      disabled={loading}
+                    >
+                      Upload CSV
+                      <input
+                        type="file"
+                        accept=".csv"
+                        hidden
+                        onChange={handleFileUpload}
+                      />
+                    </Button>
+                    {transactions.length > 0 && (
+                      <Button variant="outlined" startIcon={<Download />} onClick={handleExport}>
+                        Export CSV
+                      </Button>
+                    )}
+                    {claudeApiKey && transactions.length > 0 && (
+                      <>
+                        <Button
+                          variant="outlined"
+                          startIcon={<Refresh />}
+                          onClick={handleRecategorizeAll}
+                          disabled={loading}
+                        >
+                          Re-categorize All
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          color="secondary"
+                          startIcon={<Psychology />}
+                          onClick={handleGenerateInsights}
+                          disabled={loading}
+                        >
+                          Generate Insights
+                        </Button>
+                      </>
+                    )}
+                  </Box>
+                </Paper>
+
+                {transactions.length > 0 ? (
+                  <>
+                    <StatsCards stats={stats} />
+                    <ChartSection categoryTotals={categoryTotals} />
+                  </>
+                ) : (
+                  !loading && (
+                    <Paper sx={{ p: 6, textAlign: 'center', border: '1px solid', borderColor: 'divider' }}>
+                      <Typography variant="h6" gutterBottom>No transactions yet</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Upload a CSV file to get started with AI-powered categorization!
+                      </Typography>
+                    </Paper>
+                  )
+                )}
               </>
             )}
-            {transactions.length > 0 && (
-              <Button variant="outlined" startIcon={<Download />} onClick={handleExport}>
-                Export CSV
-              </Button>
+
+            {currentTab === 1 && (
+              // Transactions Tab
+              <>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h5" sx={{ mb: 1, fontWeight: 600 }}>
+                    Transactions
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    View and manage all transactions
+                  </Typography>
+                </Box>
+
+                {transactions.length > 0 ? (
+                  <>
+                    <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
+                      <TextField
+                        fullWidth
+                        placeholder="Search transactions..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        size="small"
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <SearchIcon fontSize="small" />
+                            </InputAdornment>
+                          ),
+                        }}
+                      />
+                      <TextField
+                        select
+                        value={filterCategory}
+                        onChange={(e) => setFilterCategory(e.target.value)}
+                        SelectProps={{ native: true }}
+                        sx={{ minWidth: 200 }}
+                        size="small"
+                      >
+                        <option value="All">All Categories</option>
+                        {CATEGORIES.map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </TextField>
+                    </Box>
+
+                    <TransactionTable
+                      transactions={filteredTransactions}
+                      categories={CATEGORIES}
+                      onCategoryChange={handleCategoryChange}
+                    />
+                  </>
+                ) : (
+                  <Paper sx={{ p: 6, textAlign: 'center', border: '1px solid', borderColor: 'divider' }}>
+                    <Typography variant="h6" gutterBottom>No transactions yet</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Upload a CSV file from the Overview tab to get started!
+                    </Typography>
+                  </Paper>
+                )}
+              </>
             )}
-          </Box>
-        </Paper>
 
-        {loading && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-            <CircularProgress />
-          </Box>
-        )}
+            {currentTab === 2 && (
+              // Sheets Tab
+              <>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h5" sx={{ mb: 1, fontWeight: 600 }}>
+                    Sheets
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Manage your budget sheets and Google Sheets integration
+                  </Typography>
+                </Box>
 
-        {transactions.length > 0 ? (
-          <>
-            <StatsCards stats={stats} />
-            {insights && <InsightsSection insights={insights} />}
-            <ChartSection categoryTotals={categoryTotals} />
+                <SheetManager
+                  sheets={sheets}
+                  activeSheetId={activeSheetId}
+                  onSheetSelect={handleSheetSelect}
+                  onSheetCreate={handleSheetCreate}
+                  onSheetDelete={handleSheetDelete}
+                />
 
-            <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
-              <TextField
-                fullWidth
-                placeholder="🔍 Search transactions..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              <TextField
-                select
-                value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-                SelectProps={{ native: true }}
-                sx={{ minWidth: 200 }}
-              >
-                <option value="All">All Categories</option>
-                {CATEGORIES.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </TextField>
-            </Box>
+                <Paper sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'divider' }}>
+                  <Typography variant="h6" gutterBottom>Google Sheets Integration</Typography>
+                  <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
+                    {isGoogleSignedIn ? '✓ Connected to Google Sheets' : 'Sign in to save your data to Google Sheets'}
+                  </Typography>
+                  {isGoogleSignedIn && (
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      <Button variant="outlined" startIcon={<Refresh />} onClick={handleLoadTransactions}>
+                        Reload from Sheets
+                      </Button>
+                      {spreadsheetId && (
+                        <Button
+                          variant="outlined"
+                          startIcon={<LinkIcon />}
+                          href={`https://docs.google.com/spreadsheets/d/${spreadsheetId}`}
+                          target="_blank"
+                        >
+                          View Spreadsheet
+                        </Button>
+                      )}
+                    </Box>
+                  )}
+                </Paper>
+              </>
+            )}
 
-            <TransactionTable
-              transactions={filteredTransactions}
-              categories={CATEGORIES}
-              onCategoryChange={handleCategoryChange}
-            />
-          </>
-        ) : (
-          !loading && (
-            <Paper sx={{ p: 6, textAlign: 'center' }}>
-              <Typography variant="h6" gutterBottom>No transactions yet</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Upload a CSV file to get started with AI-powered categorization!
-              </Typography>
-            </Paper>
-          )
-        )}
-      </Container>
+            {currentTab === 3 && claudeApiKey && (
+              // Insights Tab
+              <>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h5" sx={{ mb: 1, fontWeight: 600 }}>
+                    AI Insights
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Get personalized spending insights powered by Claude AI
+                  </Typography>
+                </Box>
+
+                {insights ? (
+                  <InsightsSection insights={insights} />
+                ) : (
+                  <Paper sx={{ p: 6, textAlign: 'center', border: '1px solid', borderColor: 'divider' }}>
+                    <Typography variant="h6" gutterBottom>No insights generated yet</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                      Generate AI-powered insights from your transaction data
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      color="secondary"
+                      startIcon={<Psychology />}
+                      onClick={handleGenerateInsights}
+                      disabled={loading || transactions.length === 0}
+                    >
+                      Generate Insights
+                    </Button>
+                  </Paper>
+                )}
+              </>
+            )}
+          </Container>
+        </Box>
+      </Box>
 
       <Snackbar
         open={snackbar.open}

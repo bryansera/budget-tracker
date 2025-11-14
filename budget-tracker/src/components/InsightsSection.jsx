@@ -6,12 +6,12 @@ function InsightsSection({ insights }) {
   if (!insights) return null;
 
   return (
-    <Paper sx={{ p: 3, mb: 3, bgcolor: '#f5f5f5' }} elevation={2}>
+    <Paper elevation={0} sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <Lightbulb sx={{ color: '#ff9800' }} />
-        <Typography variant="h6">AI Insights & Recommendations</Typography>
+        <Lightbulb sx={{ color: 'secondary.main' }} />
+        <Typography variant="h6" sx={{ fontWeight: 600 }}>AI Insights & Recommendations</Typography>
       </Box>
-      <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
+      <Typography variant="body2" sx={{ whiteSpace: 'pre-line', color: 'text.secondary', lineHeight: 1.7 }}>
         {insights}
       </Typography>
     </Paper>

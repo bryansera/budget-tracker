@@ -31,21 +31,21 @@ function StatsCards({ stats }) {
   ];
 
   return (
-    <Grid container spacing={3} sx={{ mb: 3 }}>
+    <Grid container spacing={2} sx={{ mb: 3 }}>
       {cards.map((card, index) => (
         <Grid item xs={12} sm={6} md={3} key={index}>
-          <Card elevation={2}>
+          <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider' }}>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <Box>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                  <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontSize: '0.875rem' }}>
                     {card.label}
                   </Typography>
-                  <Typography variant="h5" component="div" sx={{ color: card.color, fontWeight: 'bold' }}>
+                  <Typography variant="h5" component="div" sx={{ color: 'text.primary', fontWeight: 600 }}>
                     {card.value}
                   </Typography>
                 </Box>
-                <Box sx={{ color: card.color, opacity: 0.7 }}>
+                <Box sx={{ color: card.color, opacity: 0.3 }}>
                   {card.icon}
                 </Box>
               </Box>
