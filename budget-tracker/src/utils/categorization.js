@@ -42,9 +42,9 @@ export async function categorizeWithClaude(transactions, apiKey) {
     throw new Error('API key is required');
   }
 
-  const transactionList = transactions.map((t, i) =>
-    `${i + 1}. ${t.description} - $${Math.abs(t.amount)}`
-  ).join('\n');
+  // Process in batches of 50 to avoid token limits
+  const BATCH_SIZE = 50;
+  const results = [...transactions];
 
   try {
     // Use the Anthropic SDK
@@ -54,40 +54,62 @@ export async function categorizeWithClaude(transactions, apiKey) {
       dangerouslyAllowBrowser: true // Required for browser usage
     });
 
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 2000,
-      messages: [{
-        role: 'user',
-        content: `You are a financial categorization expert. Categorize each transaction into EXACTLY ONE of these categories: ${CATEGORIES.join(', ')}.
+    for (let i = 0; i < transactions.length; i += BATCH_SIZE) {
+      const batch = transactions.slice(i, i + BATCH_SIZE);
+      const transactionList = batch.map((t, idx) =>
+        `${idx + 1}. ${t.description} - $${Math.abs(t.amount)}`
+      ).join('\n');
+
+      const response = await client.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4096,
+        messages: [{
+          role: 'user',
+          content: `You are a financial categorization expert. Categorize each transaction into EXACTLY ONE of these categories: ${CATEGORIES.join(', ')}.
 
 Transactions:
 ${transactionList}
 
-IMPORTANT: Respond ONLY with a valid JSON array. Each item must have "index" (the transaction number) and "category" (from the list above). DO NOT include any text outside the JSON array.
+IMPORTANT: Respond ONLY with a valid JSON array. Each item must have "index" (the transaction number) and "category" (from the list above). DO NOT include any text outside the JSON array. Make sure the JSON is valid and complete.
 
 Example format:
 [{"index": 1, "category": "Groceries"}, {"index": 2, "category": "Dining"}]`
-      }]
-    });
+        }]
+      });
 
-    let categorizations;
-    try {
-      const responseText = response.content[0].text.trim();
-      const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-      categorizations = JSON.parse(jsonMatch ? jsonMatch[0] : responseText);
-    } catch (parseError) {
-      console.error('Error parsing Claude response:', parseError);
-      throw new Error('Invalid response format from AI');
+      let categorizations;
+      try {
+        const responseText = response.content[0].text.trim();
+        console.log('Claude response:', responseText);
+
+        // Try to extract JSON from response
+        const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) {
+          throw new Error(`No JSON array found in response. Response was: ${responseText.substring(0, 200)}...`);
+        }
+
+        categorizations = JSON.parse(jsonMatch[0]);
+
+        if (!Array.isArray(categorizations)) {
+          throw new Error('Response is not an array');
+        }
+      } catch (parseError) {
+        console.error('Error parsing Claude response:', parseError);
+        console.error('Raw response:', response.content[0].text);
+        throw new Error(`Invalid response format from AI: ${parseError.message}. Response preview: ${response.content[0].text.substring(0, 200)}...`);
+      }
+
+      // Apply categorizations to this batch
+      batch.forEach((t, idx) => {
+        const cat = categorizations.find(c => c.index === idx + 1);
+        if (cat && CATEGORIES.includes(cat.category)) {
+          const originalIndex = i + idx;
+          results[originalIndex] = { ...results[originalIndex], category: cat.category, aiCategorized: true };
+        }
+      });
     }
 
-    return transactions.map((t, i) => {
-      const cat = categorizations.find(c => c.index === i + 1);
-      if (cat && CATEGORIES.includes(cat.category)) {
-        return { ...t, category: cat.category, aiCategorized: true };
-      }
-      return t;
-    });
+    return results;
   } catch (error) {
     console.error('Claude API error:', error);
     throw error;

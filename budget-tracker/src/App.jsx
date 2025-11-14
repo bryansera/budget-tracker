@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
 import {
   ThemeProvider, createTheme, CssBaseline, Container, Box, Typography,
-  AppBar, Toolbar, Button, TextField, Alert, Snackbar, Paper,
-  CircularProgress, Chip, IconButton, InputAdornment, Drawer, List,
-  ListItem, ListItemButton, ListItemIcon, ListItemText, Tabs, Tab,
-  Divider
+  Button, TextField, Alert, Snackbar, Paper,
+  CircularProgress, IconButton, InputAdornment, Drawer, List,
+  ListItem, ListItemButton, ListItemIcon, ListItemText,
+  Divider, Badge
 } from '@mui/material';
 import {
   CloudUpload, Google, Refresh, Psychology, Download, Settings,
   Search as SearchIcon, Link as LinkIcon, Dashboard as DashboardIcon,
-  Receipt as ReceiptIcon, InsertChart as ChartIcon, Lightbulb as InsightIcon,
-  Folder as FolderIcon
+  Receipt as ReceiptIcon, Lightbulb as InsightIcon,
+  Folder as FolderIcon, History as HistoryIcon
 } from '@mui/icons-material';
 import { CATEGORIES, categorizeWithClaude, generateInsights } from './utils/categorization';
 import { parseCSV, exportToCSV } from './utils/csvParser';
@@ -23,6 +23,7 @@ import StatsCards from './components/StatsCards';
 import ChartSection from './components/ChartSection';
 import InsightsSection from './components/InsightsSection';
 import SheetManager from './components/SheetManager';
+import ActivityLog from './components/ActivityLog';
 
 const theme = createTheme({
   palette: {
@@ -93,6 +94,10 @@ function App() {
   const [showApiKeyInput, setShowApiKeyInput] = useState(!localStorage.getItem('claudeApiKey'));
   const [currentTab, setCurrentTab] = useState(0);
   const [tabLoading, setTabLoading] = useState(false);
+  const [activityLogs, setActivityLogs] = useState(() => {
+    const saved = localStorage.getItem('activityLogs');
+    return saved ? JSON.parse(saved) : [];
+  });
 
   // Get active sheet
   const activeSheet = sheets.find(s => s.id === activeSheetId) || sheets[0];
@@ -107,6 +112,11 @@ function App() {
   useEffect(() => {
     localStorage.setItem('activeSheetId', activeSheetId);
   }, [activeSheetId]);
+
+  // Save activity logs to localStorage
+  useEffect(() => {
+    localStorage.setItem('activityLogs', JSON.stringify(activityLogs));
+  }, [activityLogs]);
 
   useEffect(() => {
     const loadGoogleAPI = async () => {
@@ -130,6 +140,23 @@ function App() {
 
   const showSnackbar = (message, severity = 'info') => {
     setSnackbar({ open: true, message, severity });
+  };
+
+  // Activity logging
+  const logActivity = (type, status, details) => {
+    const log = {
+      id: Date.now().toString(),
+      timestamp: new Date().toISOString(),
+      type, // 'categorization', 'insights', 'recategorization'
+      status, // 'success', 'error'
+      details // object with request/response/error info
+    };
+    setActivityLogs(prev => [log, ...prev].slice(0, 100)); // Keep last 100 logs
+  };
+
+  const clearActivityLogs = () => {
+    setActivityLogs([]);
+    showSnackbar('Activity logs cleared', 'success');
   };
 
   // Tab change handler
@@ -218,10 +245,20 @@ function App() {
       if (claudeApiKey) {
         try {
           newTransactions = await categorizeWithClaude(newTransactions, claudeApiKey);
+          logActivity('categorization', 'success', {
+            transactionCount: newTransactions.length,
+            message: `Successfully categorized ${newTransactions.length} transactions`
+          });
           showSnackbar(`✨ AI categorized ${newTransactions.length} transactions!`, 'success');
         } catch (error) {
           console.error('AI categorization failed:', error);
-          showSnackbar(`Loaded ${newTransactions.length} transactions with basic categorization`, 'warning');
+          logActivity('categorization', 'error', {
+            transactionCount: newTransactions.length,
+            error: error.message,
+            stack: error.stack,
+            errorName: error.name
+          });
+          showSnackbar(`AI categorization failed. Using basic categorization instead.`, 'warning');
         }
       } else {
         showSnackbar(`Loaded ${newTransactions.length} transactions with basic categorization`, 'success');
@@ -294,12 +331,23 @@ function App() {
       setLoading(true);
       const updated = await categorizeWithClaude(transactions, claudeApiKey);
       updateActiveSheetTransactions(updated);
+      logActivity('recategorization', 'success', {
+        transactionCount: updated.length,
+        message: `Successfully re-categorized ${updated.length} transactions`
+      });
       showSnackbar('✨ All transactions re-categorized with AI!', 'success');
 
       if (isGoogleSignedIn && spreadsheetId) {
         await handleSaveToSheets(updated);
       }
     } catch (error) {
+      logActivity('recategorization', 'error', {
+        transactionCount: transactions.length,
+        error: error.message,
+        stack: error.stack,
+        errorName: error.name,
+        fullError: error.toString()
+      });
       showSnackbar(`Re-categorization failed: ${error.message}`, 'error');
     } finally {
       setLoading(false);
@@ -321,8 +369,20 @@ function App() {
       setLoading(true);
       const insightsText = await generateInsights(transactions, claudeApiKey);
       setInsights(insightsText);
+      logActivity('insights', 'success', {
+        transactionCount: transactions.length,
+        message: 'Successfully generated insights',
+        insightLength: insightsText.length
+      });
       showSnackbar('💡 AI insights generated!', 'success');
     } catch (error) {
+      logActivity('insights', 'error', {
+        transactionCount: transactions.length,
+        error: error.message,
+        stack: error.stack,
+        errorName: error.name,
+        fullError: error.toString()
+      });
       showSnackbar(`Failed to generate insights: ${error.message}`, 'error');
     } finally {
       setLoading(false);
@@ -452,6 +512,26 @@ function App() {
                     <InsightIcon fontSize="small" />
                   </ListItemIcon>
                   <ListItemText primary="Insights" />
+                </ListItemButton>
+              </ListItem>
+            )}
+            {claudeApiKey && (
+              <ListItem disablePadding sx={{ mb: 0.5 }}>
+                <ListItemButton
+                  selected={currentTab === 4}
+                  onClick={() => handleTabChange(4)}
+                  sx={{ borderRadius: 1 }}
+                >
+                  <ListItemIcon sx={{ minWidth: 36 }}>
+                    <Badge
+                      badgeContent={activityLogs.filter(log => log.status === 'error').length}
+                      color="error"
+                      max={9}
+                    >
+                      <HistoryIcon fontSize="small" />
+                    </Badge>
+                  </ListItemIcon>
+                  <ListItemText primary="Activity" />
                 </ListItemButton>
               </ListItem>
             )}
@@ -665,19 +745,21 @@ function App() {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         size="small"
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <SearchIcon fontSize="small" />
-                            </InputAdornment>
-                          ),
+                        slotProps={{
+                          input: {
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <SearchIcon fontSize="small" />
+                              </InputAdornment>
+                            ),
+                          }
                         }}
                       />
                       <TextField
                         select
                         value={filterCategory}
                         onChange={(e) => setFilterCategory(e.target.value)}
-                        SelectProps={{ native: true }}
+                        slotProps={{ select: { native: true } }}
                         sx={{ minWidth: 200 }}
                         size="small"
                       >
@@ -782,6 +864,22 @@ function App() {
                     </Button>
                   </Paper>
                 )}
+              </>
+            )}
+
+            {!tabLoading && currentTab === 4 && claudeApiKey && (
+              // Activity Tab
+              <>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h5" sx={{ mb: 1, fontWeight: 600 }}>
+                    Activity Logs
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    View detailed logs of all AI interactions and debug errors
+                  </Typography>
+                </Box>
+
+                <ActivityLog logs={activityLogs} onClear={clearActivityLogs} />
               </>
             )}
           </Container>
