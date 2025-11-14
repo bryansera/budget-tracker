@@ -125,7 +125,7 @@ Example format:
       }
 
       // Apply categorizations to this batch
-      batch.forEach((t, idx) => {
+      batch.forEach((_, idx) => {
         const cat = categorizations.find(c => c.index === idx + 1);
         if (cat && CATEGORIES.includes(cat.category)) {
           const originalIndex = i + idx;

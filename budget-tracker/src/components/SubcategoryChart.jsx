@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { Paper, Typography } from '@mui/material';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { Paper, Typography, Box } from '@mui/material';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, LabelList } from 'recharts';
 
 const COLORS = [
   '#667eea', '#764ba2', '#f093fb', '#4facfe',
@@ -83,11 +83,29 @@ function SubcategoryChart({ subcategoryTotals, categoryName, onSubcategoryClick,
     return null;
   };
 
+  const renderBarLabel = (props) => {
+    const { x, y, width, value } = props;
+    const percentage = ((value / total) * 100).toFixed(1);
+    return (
+      <text
+        x={x + width + 10}
+        y={y + 15}
+        fill="#666"
+        fontSize="12px"
+        fontWeight="600"
+      >
+        {`${percentage}% • $${formatNumber(value)}`}
+      </text>
+    );
+  };
+
   return (
     <Paper elevation={0} sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'divider' }}>
       <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
         {categoryName} Breakdown
       </Typography>
+
+      {/* Donut Chart */}
       <ResponsiveContainer width="100%" height={600} minWidth={500}>
         <PieChart>
           <Pie
@@ -120,6 +138,49 @@ function SubcategoryChart({ subcategoryTotals, categoryName, onSubcategoryClick,
           <Tooltip content={<CustomTooltip />} animationDuration={0} />
         </PieChart>
       </ResponsiveContainer>
+
+      {/* Horizontal Bar Chart */}
+      <Box sx={{
+        mt: 3,
+        '& .recharts-wrapper': { outline: 'none !important' },
+        '& .recharts-surface': { outline: 'none !important' },
+        '& svg': { outline: 'none !important' }
+      }}>
+        <ResponsiveContainer width="100%" height={chartData.length * 50 + 40}>
+          <BarChart
+            data={chartData}
+            layout="vertical"
+            margin={{ top: 20, right: 200, bottom: 20, left: 0 }}
+          >
+            <XAxis type="number" hide domain={[0, 'dataMax']} />
+            <YAxis
+              type="category"
+              dataKey="name"
+              width={130}
+              tick={{ fontSize: 12, fill: '#666', textAnchor: 'end' }}
+              orientation="left"
+            />
+            <Bar
+              dataKey="value"
+              isAnimationActive={false}
+              onClick={(data) => onSubcategoryClick && onSubcategoryClick(data.name)}
+              style={{ cursor: 'pointer' }}
+              barSize={30}
+            >
+              <LabelList dataKey="value" content={renderBarLabel} />
+              {chartData.map((entry, index) => (
+                <Cell
+                  key={`cell-${index}`}
+                  fill={COLORS[index % COLORS.length]}
+                  stroke={selectedSubcategory === entry.name ? '#000' : 'transparent'}
+                  strokeWidth={selectedSubcategory === entry.name ? 2 : 0}
+                  opacity={selectedSubcategory && selectedSubcategory !== entry.name ? 0.5 : 1}
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </Box>
     </Paper>
   );
 }
