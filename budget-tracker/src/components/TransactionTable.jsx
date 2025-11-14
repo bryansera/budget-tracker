@@ -50,7 +50,7 @@ function TransactionRow({ transaction, categories, onCategoryChange, expandAll }
             fontSize: '0.875rem'
           }}
         >
-          ${Math.abs(transaction.amount).toFixed(2)}
+          ${Math.abs(transaction.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </TableCell>
         <TableCell>
           <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>

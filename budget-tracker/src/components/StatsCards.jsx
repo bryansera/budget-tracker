@@ -2,29 +2,34 @@ import React from 'react';
 import { Grid, Card, CardContent, Typography, Box } from '@mui/material';
 import { TrendingDown, TrendingUp, AccountBalance, Receipt } from '@mui/icons-material';
 
+// Format number with commas
+const formatNumber = (num) => {
+  return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
 function StatsCards({ stats }) {
   const cards = [
     {
       label: 'Total Expenses',
-      value: `-$${stats.totalExpenses.toFixed(2)}`,
+      value: `-$${formatNumber(stats.totalExpenses)}`,
       icon: <TrendingDown />,
       color: '#f44336'
     },
     {
       label: 'Total Income',
-      value: `$${stats.totalIncome.toFixed(2)}`,
+      value: `$${formatNumber(stats.totalIncome)}`,
       icon: <TrendingUp />,
       color: '#4caf50'
     },
     {
       label: 'Net Balance',
-      value: `$${stats.netBalance.toFixed(2)}`,
+      value: `${stats.netBalance >= 0 ? '' : '-'}$${formatNumber(Math.abs(stats.netBalance))}`,
       icon: <AccountBalance />,
       color: stats.netBalance >= 0 ? '#4caf50' : '#f44336'
     },
     {
       label: 'Transactions',
-      value: stats.transactionCount,
+      value: stats.transactionCount.toLocaleString('en-US'),
       icon: <Receipt />,
       color: '#667eea'
     }

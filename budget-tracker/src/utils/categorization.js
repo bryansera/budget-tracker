@@ -155,15 +155,20 @@ export async function generateInsights(transactions, apiKey) {
     throw new Error('API key is required');
   }
 
+  // Helper function to format numbers with commas
+  const formatNumber = (num) => {
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
   const categoryTotals = transactions.reduce((acc, t) => {
-    if (t.amount < 0) {
+    if (t.category !== 'Transfer' && t.category !== 'Income') {
       acc[t.category] = (acc[t.category] || 0) + Math.abs(t.amount);
     }
     return acc;
   }, {});
 
   const totalExpenses = Object.values(categoryTotals).reduce((sum, val) => sum + val, 0);
-  const totalIncome = transactions.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
+  const totalIncome = transactions.filter(t => t.category === 'Income').reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
   try {
     const { Anthropic } = await import('@anthropic-ai/sdk');
@@ -179,12 +184,12 @@ export async function generateInsights(transactions, apiKey) {
         role: 'user',
         content: `Analyze this spending data and provide 3-4 actionable insights:
 
-Total Income: $${totalIncome.toFixed(2)}
-Total Expenses: $${totalExpenses.toFixed(2)}
+Total Income: $${formatNumber(totalIncome)}
+Total Expenses: $${formatNumber(totalExpenses)}
 Transaction Count: ${transactions.length}
 
 Spending by Category:
-${Object.entries(categoryTotals).map(([cat, amt]) => `- ${cat}: $${amt.toFixed(2)} (${((amt/totalExpenses)*100).toFixed(1)}%)`).join('\n')}
+${Object.entries(categoryTotals).map(([cat, amt]) => `- ${cat}: $${formatNumber(amt)} (${((amt/totalExpenses)*100).toFixed(1)}%)`).join('\n')}
 
 Provide insights about:
 1. Spending patterns and trends

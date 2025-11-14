@@ -9,6 +9,11 @@ const COLORS = [
   '#c0a5e8', '#96e6a1', '#feca57', '#48dbfb'
 ];
 
+// Format number with commas
+const formatNumber = (num) => {
+  return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
 function ChartSection({ categoryTotals, onCategoryClick, selectedCategory }) {
   const chartData = useMemo(() => {
     // Sort categories by value (largest first)
@@ -70,7 +75,7 @@ function ChartSection({ categoryTotals, onCategoryClick, selectedCategory }) {
           color: '#fff'
         }}>
           <p style={{ margin: 0 }}>
-            {`${data.name}: $${data.value.toFixed(2)} (${percentage}%)`}
+            {`${data.name}: $${formatNumber(data.value)} (${percentage}%)`}
           </p>
         </div>
       );
