@@ -30,7 +30,7 @@ function ChartSection({ categoryTotals, onCategoryClick, selectedCategory }) {
   }
 
   const renderCustomizedLabel = ({
-    cx, cy, midAngle, innerRadius, outerRadius, percent, index, name
+    cx, cy, midAngle, outerRadius, percent, index, name
   }) => {
     // Safety check for valid data
     if (!chartData[index]) return null;

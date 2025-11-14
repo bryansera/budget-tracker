@@ -441,15 +441,25 @@ function App() {
   };
 
   const stats = {
-    totalExpenses: transactions.filter(t => t.amount < 0).reduce((sum, t) => sum + Math.abs(t.amount), 0),
-    totalIncome: transactions.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0),
+    totalExpenses: transactions
+      .filter(t => t.category !== 'Transfer' && t.category !== 'Income')
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0),
+    totalIncome: transactions
+      .filter(t => t.category === 'Income')
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0),
     transactionCount: transactions.length,
-    netBalance: transactions.reduce((sum, t) => sum + t.amount, 0)
+    netBalance: transactions
+      .filter(t => t.category === 'Income')
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0) -
+      transactions
+      .filter(t => t.category !== 'Transfer' && t.category !== 'Income')
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0)
   };
 
-  // Category totals excluding Transfer category
+  // Category totals excluding Transfer and Income categories
   const categoryTotals = transactions.reduce((acc, t) => {
-    if (t.amount < 0 && t.category !== 'Transfer') {
+    // Count all transactions except Income and Transfer as expenses
+    if (t.category !== 'Transfer' && t.category !== 'Income') {
       acc[t.category] = (acc[t.category] || 0) + Math.abs(t.amount);
     }
     return acc;
@@ -458,7 +468,7 @@ function App() {
   // Subcategory totals for selected category
   const subcategoryTotals = selectedCategory
     ? transactions.reduce((acc, t) => {
-        if (t.amount < 0 && t.category === selectedCategory && t.subcategory) {
+        if (t.category === selectedCategory && t.subcategory) {
           acc[t.subcategory] = (acc[t.subcategory] || 0) + Math.abs(t.amount);
         }
         return acc;
