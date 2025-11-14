@@ -92,6 +92,7 @@ function App() {
   const [insights, setInsights] = useState(null);
   const [showApiKeyInput, setShowApiKeyInput] = useState(!localStorage.getItem('claudeApiKey'));
   const [currentTab, setCurrentTab] = useState(0);
+  const [tabLoading, setTabLoading] = useState(false);
 
   // Get active sheet
   const activeSheet = sheets.find(s => s.id === activeSheetId) || sheets[0];
@@ -129,6 +130,15 @@ function App() {
 
   const showSnackbar = (message, severity = 'info') => {
     setSnackbar({ open: true, message, severity });
+  };
+
+  // Tab change handler
+  const handleTabChange = (newTab) => {
+    if (newTab === currentTab) return;
+    setTabLoading(true);
+    setCurrentTab(newTab);
+    // Clear loading after a short delay to allow rendering
+    setTimeout(() => setTabLoading(false), 300);
   };
 
   // Sheet management functions
@@ -398,7 +408,7 @@ function App() {
             <ListItem disablePadding sx={{ mb: 0.5 }}>
               <ListItemButton
                 selected={currentTab === 0}
-                onClick={() => setCurrentTab(0)}
+                onClick={() => handleTabChange(0)}
                 sx={{ borderRadius: 1 }}
               >
                 <ListItemIcon sx={{ minWidth: 36 }}>
@@ -410,7 +420,7 @@ function App() {
             <ListItem disablePadding sx={{ mb: 0.5 }}>
               <ListItemButton
                 selected={currentTab === 1}
-                onClick={() => setCurrentTab(1)}
+                onClick={() => handleTabChange(1)}
                 sx={{ borderRadius: 1 }}
               >
                 <ListItemIcon sx={{ minWidth: 36 }}>
@@ -422,7 +432,7 @@ function App() {
             <ListItem disablePadding sx={{ mb: 0.5 }}>
               <ListItemButton
                 selected={currentTab === 2}
-                onClick={() => setCurrentTab(2)}
+                onClick={() => handleTabChange(2)}
                 sx={{ borderRadius: 1 }}
               >
                 <ListItemIcon sx={{ minWidth: 36 }}>
@@ -435,7 +445,7 @@ function App() {
               <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
                   selected={currentTab === 3}
-                  onClick={() => setCurrentTab(3)}
+                  onClick={() => handleTabChange(3)}
                   sx={{ borderRadius: 1 }}
                 >
                   <ListItemIcon sx={{ minWidth: 36 }}>
@@ -511,8 +521,15 @@ function App() {
           </Box>
 
           <Container maxWidth="xl" sx={{ mt: 3, mb: 4, px: 4 }}>
+            {/* Tab Loading Spinner */}
+            {tabLoading && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+                <CircularProgress />
+              </Box>
+            )}
+
             {/* API Key Setup */}
-            {showApiKeyInput && (
+            {!tabLoading && showApiKeyInput && (
               <Paper sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'warning.main', bgcolor: 'warning.50' }}>
                 <Typography variant="h6" gutterBottom sx={{ color: 'text.primary' }}>Enable AI Features</Typography>
                 <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
@@ -541,14 +558,14 @@ function App() {
               </Paper>
             )}
 
-            {loading && (
+            {!tabLoading && loading && (
               <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
                 <CircularProgress />
               </Box>
             )}
 
             {/* Tab Content */}
-            {currentTab === 0 && (
+            {!tabLoading && currentTab === 0 && (
               // Overview Tab
               <>
                 <Box sx={{ mb: 3 }}>
@@ -627,7 +644,7 @@ function App() {
               </>
             )}
 
-            {currentTab === 1 && (
+            {!tabLoading && currentTab === 1 && (
               // Transactions Tab
               <>
                 <Box sx={{ mb: 3 }}>
@@ -688,7 +705,7 @@ function App() {
               </>
             )}
 
-            {currentTab === 2 && (
+            {!tabLoading && currentTab === 2 && (
               // Sheets Tab
               <>
                 <Box sx={{ mb: 3 }}>
@@ -734,7 +751,7 @@ function App() {
               </>
             )}
 
-            {currentTab === 3 && claudeApiKey && (
+            {!tabLoading && currentTab === 3 && claudeApiKey && (
               // Insights Tab
               <>
                 <Box sx={{ mb: 3 }}>
