@@ -142,9 +142,11 @@ function SubcategoryChart({ subcategoryTotals, categoryName, onSubcategoryClick,
       {/* Horizontal Bar Chart */}
       <Box sx={{
         mt: 3,
-        '& .recharts-wrapper': { outline: 'none !important' },
-        '& .recharts-surface': { outline: 'none !important' },
-        '& svg': { outline: 'none !important' }
+        '& *': {
+          outline: 'none !important',
+          '&:focus': { outline: 'none !important' },
+          '&:focus-visible': { outline: 'none !important' }
+        }
       }}>
         <ResponsiveContainer width="100%" height={chartData.length * 50 + 40}>
           <BarChart
