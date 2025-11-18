@@ -17,6 +17,8 @@ function ActivityLog({ logs, onClear }) {
         return <Refresh fontSize="small" />;
       case 'insights':
         return <Psychology fontSize="small" />;
+      case 'rule_generation':
+        return <Psychology fontSize="small" />;
       default:
         return null;
     }
@@ -30,6 +32,8 @@ function ActivityLog({ logs, onClear }) {
         return 'Re-categorization';
       case 'insights':
         return 'Generate Insights';
+      case 'rule_generation':
+        return 'Rule Generation';
       default:
         return type;
     }
@@ -120,18 +124,92 @@ function ActivityLog({ logs, onClear }) {
                 <Box>
                   {log.status === 'success' ? (
                     <>
-                      <Typography variant="body2" color="text.secondary" gutterBottom>
-                        <strong>Message:</strong> {log.details.message}
-                      </Typography>
-                      {log.details.transactionCount && (
-                        <Typography variant="body2" color="text.secondary">
-                          <strong>Transactions:</strong> {log.details.transactionCount}
-                        </Typography>
-                      )}
-                      {log.details.insightLength && (
-                        <Typography variant="body2" color="text.secondary">
-                          <strong>Insight Length:</strong> {log.details.insightLength} characters
-                        </Typography>
+                      {log.type === 'rule_generation' && log.details.apiCalls ? (
+                        <>
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            <strong>Rules Generated:</strong> {log.details.rulesGenerated}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            <strong>Transactions Analyzed:</strong> {log.details.transactionsAnalyzed}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            <strong>Total Batches:</strong> {log.details.apiCalls.length}
+                          </Typography>
+
+                          <Divider sx={{ my: 2 }} />
+
+                          {log.details.apiCalls.map((call, idx) => (
+                            <Accordion key={idx} elevation={0} sx={{ mb: 1, border: '1px solid', borderColor: 'divider' }}>
+                              <AccordionSummary expandIcon={<ExpandMore />}>
+                                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                  Batch {call.batchNumber} - {call.categories.join(', ')} ({call.response.rulesGenerated} rules)
+                                </Typography>
+                              </AccordionSummary>
+                              <AccordionDetails>
+                                <Box>
+                                  <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 1 }}>
+                                    REQUEST:
+                                  </Typography>
+                                  <Box
+                                    component="pre"
+                                    sx={{
+                                      p: 2,
+                                      bgcolor: 'grey.100',
+                                      borderRadius: 1,
+                                      overflow: 'auto',
+                                      fontSize: '0.75rem',
+                                      fontFamily: 'monospace',
+                                      mb: 2,
+                                      maxHeight: '300px'
+                                    }}
+                                  >
+                                    {call.request.prompt}
+                                  </Box>
+
+                                  <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 1 }}>
+                                    RESPONSE:
+                                  </Typography>
+                                  <Box
+                                    component="pre"
+                                    sx={{
+                                      p: 2,
+                                      bgcolor: 'grey.100',
+                                      borderRadius: 1,
+                                      overflow: 'auto',
+                                      fontSize: '0.75rem',
+                                      fontFamily: 'monospace',
+                                      maxHeight: '400px'
+                                    }}
+                                  >
+                                    {call.response.fullText}
+                                  </Box>
+
+                                  {call.response.usage && (
+                                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                                      Tokens: {call.response.usage.input_tokens} input, {call.response.usage.output_tokens} output
+                                    </Typography>
+                                  )}
+                                </Box>
+                              </AccordionDetails>
+                            </Accordion>
+                          ))}
+                        </>
+                      ) : (
+                        <>
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            <strong>Message:</strong> {log.details.message}
+                          </Typography>
+                          {log.details.transactionCount && (
+                            <Typography variant="body2" color="text.secondary">
+                              <strong>Transactions:</strong> {log.details.transactionCount}
+                            </Typography>
+                          )}
+                          {log.details.insightLength && (
+                            <Typography variant="body2" color="text.secondary">
+                              <strong>Insight Length:</strong> {log.details.insightLength} characters
+                            </Typography>
+                          )}
+                        </>
                       )}
                     </>
                   ) : (

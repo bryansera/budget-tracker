@@ -51,6 +51,73 @@ export function categorizeTransactionBasic(description) {
   return { category: 'Other', subcategory: 'Miscellaneous' };
 }
 
+/**
+ * Categorize transactions using rules first, then AI for uncategorized transactions
+ */
+export async function categorizeWithRulesAndAI(transactions, rules, apiKey) {
+  console.log('[categorizeWithRulesAndAI] Starting...', {
+    transactionCount: transactions?.length,
+    ruleCount: rules?.length,
+    hasApiKey: !!apiKey
+  });
+
+  if (!transactions || !Array.isArray(transactions)) {
+    console.error('[categorizeWithRulesAndAI] Invalid transactions:', transactions);
+    throw new Error('Transactions must be an array');
+  }
+
+  const { categorizeTransactionsWithRules } = await import('./rules');
+
+  // First pass: apply rules
+  console.log('[categorizeWithRulesAndAI] Applying rules...');
+  let categorized = categorizeTransactionsWithRules(transactions, rules || []);
+
+  console.log('[categorizeWithRulesAndAI] Rules applied:', {
+    total: categorized?.length,
+    categorizedByRule: categorized?.filter(t => t.categorizedBy === 'rule').length
+  });
+
+  if (!categorized || !Array.isArray(categorized)) {
+    console.error('[categorizeWithRulesAndAI] categorizeTransactionsWithRules returned invalid data:', categorized);
+    categorized = transactions; // Fallback to original transactions
+  }
+
+  // Find transactions that weren't categorized by rules
+  const uncategorized = categorized.filter(t => !t.categorizedBy);
+
+  console.log('[categorizeWithRulesAndAI] Uncategorized transactions:', uncategorized.length);
+
+  if (uncategorized.length > 0 && apiKey) {
+    // Second pass: use AI for remaining transactions
+    console.log('[categorizeWithRulesAndAI] Starting AI categorization for', uncategorized.length, 'transactions');
+    try {
+      const aiCategorized = await categorizeWithClaude(uncategorized, apiKey);
+
+      console.log('[categorizeWithRulesAndAI] AI categorization complete:', aiCategorized.length);
+
+      // Merge AI categorized back into results
+      const aiMap = new Map(aiCategorized.map(t => [t.id, t]));
+      categorized = categorized.map(t => {
+        if (aiMap.has(t.id)) {
+          return aiMap.get(t.id);
+        }
+        return t;
+      });
+    } catch (error) {
+      console.error('[categorizeWithRulesAndAI] AI categorization failed:', error);
+      // Continue with rule-based categorization only
+    }
+  }
+
+  console.log('[categorizeWithRulesAndAI] Complete:', {
+    total: categorized.length,
+    byRule: categorized.filter(t => t.categorizedBy === 'rule').length,
+    byAI: categorized.filter(t => t.aiCategorized && t.categorizedBy !== 'rule').length
+  });
+
+  return categorized;
+}
+
 export async function categorizeWithClaude(transactions, apiKey) {
   if (!apiKey) {
     throw new Error('API key is required');
