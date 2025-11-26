@@ -1,5 +1,51 @@
 // Google Sheets API integration
 let gapiInited = false;
+
+/**
+ * Extract spreadsheet ID from a Google Sheets URL
+ * Supports formats like:
+ * - https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit
+ * - https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit#gid=0
+ * - https://docs.google.com/spreadsheets/d/SPREADSHEET_ID
+ */
+export function parseSpreadsheetUrl(url) {
+  if (!url) return null;
+
+  // Handle case where user pastes just the ID
+  if (!url.includes('/') && !url.includes('.')) {
+    return url.trim();
+  }
+
+  const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Validate that a spreadsheet exists and is accessible
+ */
+export async function validateSpreadsheet(spreadsheetId) {
+  try {
+    await ensureValidToken();
+
+    const response = await window.gapi.client.sheets.spreadsheets.get({
+      spreadsheetId
+    });
+
+    return {
+      valid: true,
+      title: response.result.properties.title,
+      sheets: response.result.sheets.map(s => s.properties.title)
+    };
+  } catch (error) {
+    if (error.status === 404) {
+      return { valid: false, error: 'Spreadsheet not found' };
+    }
+    if (error.status === 403) {
+      return { valid: false, error: 'You do not have permission to access this spreadsheet' };
+    }
+    return { valid: false, error: error.message || 'Failed to validate spreadsheet' };
+  }
+}
 let tokenClient = null;
 let tokenExpiryTime = null;
 

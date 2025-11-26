@@ -20,7 +20,7 @@ import { parseCSV, exportToCSV } from './utils/csvParser';
 import {
   initGoogleAPI, signIn, signOut, isSignedIn, createSpreadsheet,
   saveTransactions, loadTransactions, updateTransactionCategory,
-  saveRules, loadRules
+  saveRules, loadRules, parseSpreadsheetUrl, validateSpreadsheet
 } from './utils/googleSheets';
 import { generateRulesWithClaude, updateRuleStats } from './utils/rules';
 import TransactionTable from './components/TransactionTable';
@@ -175,6 +175,8 @@ function App() {
     rules: [],
     selectedRuleIds: []
   });
+  const [sheetUrlInput, setSheetUrlInput] = useState('');
+  const [sheetUrlError, setSheetUrlError] = useState('');
   const [overviewStatsExpanded, setOverviewStatsExpanded] = useState(true);
   const [overviewChartsExpanded, setOverviewChartsExpanded] = useState(true);
   const [transactionsChartsExpanded, setTransactionsChartsExpanded] = useState(true);
@@ -557,6 +559,57 @@ function App() {
       showSnackbar(`Loaded ${loadedRules.length} rules from Google Sheets!`, 'success');
     } catch (error) {
       showSnackbar(`Failed to load rules: ${error.message}`, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConnectSheetUrl = async () => {
+    if (!isGoogleSignedIn) {
+      showSnackbar('Please sign in to Google first', 'error');
+      return;
+    }
+
+    setSheetUrlError('');
+    const parsedId = parseSpreadsheetUrl(sheetUrlInput);
+
+    if (!parsedId) {
+      setSheetUrlError('Invalid Google Sheets URL. Please paste a valid URL.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const validation = await validateSpreadsheet(parsedId);
+
+      if (!validation.valid) {
+        setSheetUrlError(validation.error);
+        return;
+      }
+
+      // Successfully validated - save the spreadsheet ID
+      setSpreadsheetId(parsedId);
+      localStorage.setItem('budgetSpreadsheetId', parsedId);
+      setSheetUrlInput('');
+
+      showSnackbar(`Connected to "${validation.title}"!`, 'success');
+
+      // Check if it has a Transactions sheet and offer to load
+      if (validation.sheets.includes('Transactions')) {
+        const loaded = await loadTransactions(parsedId);
+        if (loaded.length > 0) {
+          updateActiveSheetTransactions(loaded);
+          showSnackbar(`Loaded ${loaded.length} transactions from "${validation.title}"!`, 'success');
+        }
+      }
+    } catch (error) {
+      // Handle token expiration by prompting re-authentication
+      if (error.message?.includes('Token expired') || error.message?.includes('sign in')) {
+        setIsGoogleSignedIn(false);
+        showSnackbar('Session expired. Please sign in to Google again.', 'warning');
+      } else {
+        setSheetUrlError(error.message || 'Failed to connect to spreadsheet');
+      }
     } finally {
       setLoading(false);
     }
@@ -1584,22 +1637,82 @@ function App() {
                   <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
                     {isGoogleSignedIn ? '✓ Connected to Google Sheets' : 'Sign in to save your data to Google Sheets'}
                   </Typography>
+
                   {isGoogleSignedIn && (
-                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                      <Button variant="outlined" startIcon={<Refresh />} onClick={handleLoadTransactions}>
-                        Reload from Sheets
-                      </Button>
+                    <>
+                      {/* Connect to existing sheet via URL */}
+                      <Box sx={{ mb: 3 }}>
+                        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                          Connect to Existing Sheet
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            placeholder="Paste Google Sheets URL..."
+                            value={sheetUrlInput}
+                            onChange={(e) => {
+                              setSheetUrlInput(e.target.value);
+                              setSheetUrlError('');
+                            }}
+                            error={!!sheetUrlError}
+                            helperText={sheetUrlError}
+                            slotProps={{
+                              input: {
+                                startAdornment: (
+                                  <InputAdornment position="start">
+                                    <LinkIcon fontSize="small" />
+                                  </InputAdornment>
+                                ),
+                              }
+                            }}
+                          />
+                          <Button
+                            variant="contained"
+                            onClick={handleConnectSheetUrl}
+                            disabled={loading || !sheetUrlInput.trim()}
+                          >
+                            Connect
+                          </Button>
+                        </Box>
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                          Example: https://docs.google.com/spreadsheets/d/your-sheet-id/edit
+                        </Typography>
+                      </Box>
+
+                      <Divider sx={{ my: 2 }} />
+
+                      {/* Current sheet status */}
                       {spreadsheetId && (
-                        <Button
-                          variant="outlined"
-                          startIcon={<LinkIcon />}
-                          href={`https://docs.google.com/spreadsheets/d/${spreadsheetId}`}
-                          target="_blank"
-                        >
-                          View Spreadsheet
-                        </Button>
+                        <Box sx={{ mb: 2 }}>
+                          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                            Currently Connected
+                          </Typography>
+                          <Chip
+                            label={`Sheet ID: ${spreadsheetId.substring(0, 20)}...`}
+                            variant="outlined"
+                            size="small"
+                            sx={{ fontFamily: 'monospace' }}
+                          />
+                        </Box>
                       )}
-                    </Box>
+
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        <Button variant="outlined" startIcon={<Refresh />} onClick={handleLoadTransactions} disabled={!spreadsheetId}>
+                          Reload from Sheets
+                        </Button>
+                        {spreadsheetId && (
+                          <Button
+                            variant="outlined"
+                            startIcon={<LinkIcon />}
+                            href={`https://docs.google.com/spreadsheets/d/${spreadsheetId}`}
+                            target="_blank"
+                          >
+                            View Spreadsheet
+                          </Button>
+                        )}
+                      </Box>
+                    </>
                   )}
                 </Paper>
               </>
