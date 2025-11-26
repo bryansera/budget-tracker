@@ -174,10 +174,10 @@ export async function createSpreadsheet(title = 'Budget Tracker Data') {
     // Add headers for Transactions sheet
     await window.gapi.client.sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: 'Transactions!A1:F1',
+      range: 'Transactions!A1:G1',
       valueInputOption: 'RAW',
       resource: {
-        values: [['Date', 'Description', 'Amount', 'Category', 'Source', 'AI Categorized']]
+        values: [['Date', 'Description', 'Amount', 'Category', 'Source', 'AI Categorized', 'Reference ID']]
       }
     });
 
@@ -201,7 +201,7 @@ export async function createSpreadsheet(title = 'Budget Tracker Data') {
   }
 }
 
-export async function saveTransactions(spreadsheetId, transactions) {
+export async function saveTransactions(spreadsheetId, transactions, append = false) {
   try {
     await ensureValidToken();
 
@@ -211,17 +211,38 @@ export async function saveTransactions(spreadsheetId, transactions) {
       t.amount,
       t.category,
       t.source,
-      t.aiCategorized ? 'Yes' : 'No'
+      t.aiCategorized ? 'Yes' : 'No',
+      t.referenceId || ''
     ]);
 
-    await window.gapi.client.sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range: 'Transactions!A:F',
-      valueInputOption: 'RAW',
-      resource: {
-        values
+    if (append) {
+      // Append mode: just add new rows (caller is responsible for dedup)
+      await window.gapi.client.sheets.spreadsheets.values.append({
+        spreadsheetId,
+        range: 'Transactions!A:G',
+        valueInputOption: 'RAW',
+        resource: {
+          values
+        }
+      });
+    } else {
+      // Replace mode: clear existing and write all (prevents duplicates)
+      await window.gapi.client.sheets.spreadsheets.values.clear({
+        spreadsheetId,
+        range: 'Transactions!A2:G'
+      });
+
+      if (values.length > 0) {
+        await window.gapi.client.sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: 'Transactions!A2:G',
+          valueInputOption: 'RAW',
+          resource: {
+            values
+          }
+        });
       }
-    });
+    }
 
     return true;
   } catch (error) {
@@ -236,19 +257,23 @@ export async function loadTransactions(spreadsheetId) {
 
     const response = await window.gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: 'Transactions!A2:F'
+      range: 'Transactions!A2:G'
     });
 
     const rows = response.result.values || [];
-    return rows.map((row, index) => ({
-      id: `${row[0]}-${row[1]}-${row[2]}-${index}`,
-      date: row[0],
-      description: row[1],
-      amount: parseFloat(row[2]),
-      category: row[3],
-      source: row[4],
-      aiCategorized: row[5] === 'Yes'
-    }));
+    return rows.map((row, index) => {
+      const referenceId = row[6] || null;
+      return {
+        id: referenceId || `${row[0]}-${row[1]}-${row[2]}-${index}`,
+        referenceId,
+        date: row[0],
+        description: row[1],
+        amount: parseFloat(row[2]),
+        category: row[3],
+        source: row[4],
+        aiCategorized: row[5] === 'Yes'
+      };
+    });
   } catch (error) {
     console.error('Error loading transactions:', error);
     throw error;

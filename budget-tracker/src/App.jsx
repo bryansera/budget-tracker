@@ -696,7 +696,28 @@ function App() {
     setLoading(true);
     try {
       const content = await file.text();
-      let newTransactions = parseCSV(content, file.name);
+      const parseResult = parseCSV(content, file.name);
+      let newTransactions = parseResult.transactions;
+      const fileDuplicates = parseResult.duplicateCount;
+
+      // Deduplicate against existing transactions
+      const existingHashes = new Set(
+        transactions.map(t => {
+          if (t.referenceId) return `ref:${t.referenceId}`;
+          const normalizedDesc = t.description.toLowerCase().trim();
+          const normalizedAmount = Math.abs(parseFloat(t.amount)).toFixed(2);
+          return `${t.date}|${normalizedDesc}|${normalizedAmount}`;
+        })
+      );
+
+      const beforeDedup = newTransactions.length;
+      newTransactions = newTransactions.filter(t => {
+        const hash = t.referenceId
+          ? `ref:${t.referenceId}`
+          : `${t.date}|${t.description.toLowerCase().trim()}|${Math.abs(t.amount).toFixed(2)}`;
+        return !existingHashes.has(hash);
+      });
+      const existingDuplicates = beforeDedup - newTransactions.length;
 
       if (claudeApiKey || rules.length > 0) {
         try {
@@ -729,15 +750,31 @@ function App() {
           });
           showSnackbar(`Categorization failed. Using basic categorization instead.`, 'warning');
         }
+      }
+
+      // Show import summary
+      const totalDuplicates = fileDuplicates + existingDuplicates;
+      if (totalDuplicates > 0) {
+        showSnackbar(`Loaded ${newTransactions.length} new transactions (skipped ${totalDuplicates} duplicates)`, 'success');
       } else {
-        showSnackbar(`Loaded ${newTransactions.length} transactions with basic categorization`, 'success');
+        showSnackbar(`Loaded ${newTransactions.length} transactions`, 'success');
       }
 
       const combined = [...transactions, ...newTransactions];
       updateActiveSheetTransactions(combined);
 
+      // Log import activity
+      logActivity('import', 'success', {
+        filename: file.name,
+        transactionsInCsv: parseResult.transactions.length,
+        newTransactionsAdded: newTransactions.length,
+        duplicatesSkipped: totalDuplicates,
+        totalTransactionsNow: combined.length,
+        message: `Imported ${file.name}: ${parseResult.transactions.length} in CSV, ${newTransactions.length} new, ${combined.length} total`
+      });
+
       if (isGoogleSignedIn) {
-        await handleSaveToSheets(newTransactions);
+        await handleSaveToSheets(combined);
       }
     } catch (error) {
       showSnackbar(`Error processing file: ${error.message}`, 'error');
@@ -1099,11 +1136,13 @@ function App() {
     : {};
 
   const filteredTransactions = transactions.filter(t => {
-    const matchesCategory = !selectedCategory || t.category === selectedCategory;
+    const matchesCategory = !selectedCategory ||
+      (selectedCategory === '__uncategorized__' ? (!t.category || t.category === 'Uncategorized') : t.category === selectedCategory) ||
+      (selectedCategory === '__no_rule__' ? !t.ruleId : false);
     const matchesSubcategory = !selectedSubcategory || t.subcategory === selectedSubcategory;
     const matchesSearch = !searchQuery ||
       t.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (t.category && t.category.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (t.subcategory && t.subcategory.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesCategory && matchesSubcategory && matchesSearch;
   });
@@ -1437,12 +1476,37 @@ function App() {
                       </Collapse>
                     </Paper>
 
+                    {/* Quick Filters */}
+                    <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
+                        Quick filters:
+                      </Typography>
+                      <Chip
+                        label={`Uncategorized (${transactions.filter(t => !t.category || t.category === 'Uncategorized').length})`}
+                        onClick={() => handleCategoryClick('__uncategorized__')}
+                        color={selectedCategory === '__uncategorized__' ? 'primary' : 'default'}
+                        variant={selectedCategory === '__uncategorized__' ? 'filled' : 'outlined'}
+                        size="small"
+                      />
+                      <Chip
+                        label={`No Rule Match (${transactions.filter(t => !t.ruleId).length})`}
+                        onClick={() => handleCategoryClick('__no_rule__')}
+                        color={selectedCategory === '__no_rule__' ? 'primary' : 'default'}
+                        variant={selectedCategory === '__no_rule__' ? 'filled' : 'outlined'}
+                        size="small"
+                      />
+                    </Box>
+
                     {/* Filter Reset Button */}
                     {(selectedCategory || selectedSubcategory || searchQuery) && (
                       <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Typography variant="body2" color="text.secondary">
                           {selectedSubcategory
                             ? `Filtered by: ${selectedCategory} > ${selectedSubcategory}`
+                            : selectedCategory === '__uncategorized__'
+                            ? 'Filtered by: Uncategorized'
+                            : selectedCategory === '__no_rule__'
+                            ? 'Filtered by: No Rule Match'
                             : selectedCategory
                             ? `Filtered by: ${selectedCategory}`
                             : searchQuery

@@ -65,7 +65,7 @@ h3 {
   vertical-align: middle;
 }
 
-button {
+button:not(.MuiButton-root):not(.MuiIconButton-root):not(.MuiButtonBase-root) {
   background: #667eea;
   color: white;
   border: none;
@@ -78,13 +78,13 @@ button {
   font-weight: 500;
 }
 
-button:hover:not(:disabled) {
+button:not(.MuiButton-root):not(.MuiIconButton-root):not(.MuiButtonBase-root):hover:not(:disabled) {
   background: #5568d3;
   transform: translateY(-2px);
   box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
 }
 
-button:disabled {
+button:not(.MuiButton-root):not(.MuiIconButton-root):not(.MuiButtonBase-root):disabled {
   background: #ccc;
   cursor: not-allowed;
   transform: none;
