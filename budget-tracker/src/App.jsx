@@ -22,7 +22,7 @@ import {
   saveTransactions, loadTransactions, updateTransactionCategory,
   saveRules, loadRules, parseSpreadsheetUrl, validateSpreadsheet
 } from './utils/googleSheets';
-import { generateRulesWithClaude, updateRuleStats } from './utils/rules';
+import { generateRulesWithClaude, updateRuleStats, categorizeTransactionsWithRules } from './utils/rules';
 import TransactionTable from './components/TransactionTable';
 import StatsCards from './components/StatsCards';
 import ChartSection from './components/ChartSection';
@@ -780,9 +780,15 @@ function App() {
 
     try {
       setLoading(true);
-      const loaded = await loadTransactions(spreadsheetId);
-      updateActiveSheetTransactions(loaded);
-      showSnackbar(`Loaded ${loaded.length} transactions from Google Sheets!`, 'success');
+      const [loadedTransactions, loadedRules] = await Promise.all([
+        loadTransactions(spreadsheetId),
+        loadRules(spreadsheetId)
+      ]);
+      updateActiveSheetTransactions(loadedTransactions);
+      if (loadedRules.length > 0) {
+        setRules(loadedRules);
+      }
+      showSnackbar(`Loaded ${loadedTransactions.length} transactions and ${loadedRules.length} rules from Google Sheets!`, 'success');
     } catch (error) {
       showSnackbar(`Failed to load: ${error.message}`, 'error');
     } finally {
@@ -864,6 +870,50 @@ function App() {
       });
       setProgressDialog({ open: false, title: '', message: '', details: {} });
       showSnackbar(`Re-categorization failed: ${error.message}`, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApplyRulesOnly = async () => {
+    if (rules.length === 0) {
+      showSnackbar('No rules available. Create or load rules first.', 'error');
+      return;
+    }
+
+    if (transactions.length === 0) {
+      showSnackbar('No transactions to categorize.', 'error');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const categorized = categorizeTransactionsWithRules(transactions, rules);
+
+      const ruleMatched = categorized.filter(t => t.categorizedBy === 'rule').length;
+
+      updateActiveSheetTransactions(categorized);
+
+      // Update rule stats
+      const updatedRules = updateRuleStats(rules, categorized);
+      setRules(updatedRules);
+
+      logActivity('apply_rules', 'success', {
+        transactionCount: transactions.length,
+        ruleCategorized: ruleMatched,
+        message: `Applied rules to ${transactions.length} transactions (${ruleMatched} matched)`
+      });
+
+      showSnackbar(`Applied rules: ${ruleMatched} of ${transactions.length} transactions matched`, 'success');
+
+      if (isGoogleSignedIn && spreadsheetId) {
+        await handleSaveToSheets(categorized);
+      }
+    } catch (error) {
+      logActivity('apply_rules', 'error', {
+        error: error.message
+      });
+      showSnackbar(`Failed to apply rules: ${error.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -1333,6 +1383,16 @@ function App() {
                         Export CSV
                       </Button>
                     )}
+                    {rules.length > 0 && transactions.length > 0 && (
+                      <Button
+                        variant="outlined"
+                        startIcon={<Refresh />}
+                        onClick={handleApplyRulesOnly}
+                        disabled={loading}
+                      >
+                        Apply Rules
+                      </Button>
+                    )}
                     {claudeApiKey && transactions.length > 0 && (
                       <>
                         <Button
@@ -1701,6 +1761,16 @@ function App() {
                         <Button variant="outlined" startIcon={<Refresh />} onClick={handleLoadTransactions} disabled={!spreadsheetId}>
                           Reload from Sheets
                         </Button>
+                        {rules.length > 0 && transactions.length > 0 && (
+                          <Button
+                            variant="outlined"
+                            startIcon={<Refresh />}
+                            onClick={handleApplyRulesOnly}
+                            disabled={loading}
+                          >
+                            Apply Rules
+                          </Button>
+                        )}
                         {spreadsheetId && (
                           <Button
                             variant="outlined"
