@@ -1,10 +1,11 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Paper, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, Typography, Chip, Select, MenuItem, Box, IconButton,
   Collapse, Tooltip, Button, TableSortLabel, Checkbox, Alert
 } from '@mui/material';
-import { SmartToy, KeyboardArrowDown, KeyboardArrowUp, UnfoldMore, UnfoldLess, Refresh, Add, Visibility, Rule } from '@mui/icons-material';
+import { SmartToy, KeyboardArrowDown, KeyboardArrowUp, UnfoldMore, UnfoldLess, Refresh, Add, Visibility, Rule, OpenInNew } from '@mui/icons-material';
 
 function TransactionRow({ transaction, categories, onCategoryChange, expandAll, selected, onSelect, onRecategorize, rules, allTransactions, onCreateRule, onViewRuleMatches }) {
   const [open, setOpen] = useState(false);
@@ -159,16 +160,14 @@ function TransactionRow({ transaction, categories, onCategoryChange, expandAll, 
                     </Box>
 
                     <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-                      {onViewRuleMatches && (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          startIcon={<Visibility />}
-                          onClick={() => onViewRuleMatches(appliedRule.id)}
-                        >
-                          View All {ruleMatchCount} Matching Transactions
-                        </Button>
-                      )}
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<OpenInNew />}
+                        onClick={() => window.open(`/ai-review/${appliedRule.id}`, '_blank')}
+                      >
+                        View All {ruleMatchCount} Matching Transactions
+                      </Button>
                     </Box>
                   </Box>
                 ) : transaction.aiReason ? (
@@ -335,7 +334,7 @@ function TransactionTable({ transactions, categories, onCategoryChange, selected
       <TableContainer>
         <Table>
           <TableHead>
-            <TableRow sx={{ bgcolor: 'background.default' }}>
+            <TableRow sx={{ bgcolor: 'var(--table-header-bg, #f8f9fa) !important' }}>
               <TableCell padding="checkbox">
                 <Checkbox
                   checked={isAllSelected}

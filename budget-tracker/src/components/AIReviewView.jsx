@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Paper, Typography, Box, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Chip, IconButton, Switch, Dialog, DialogTitle,
@@ -8,7 +9,7 @@ import {
 } from '@mui/material';
 import {
   Add, Edit, Delete, Psychology, Refresh, Download, Upload,
-  ExpandMore, CheckCircle, Cancel, FilterList, ExpandLess, PlayArrow, Warning
+  ExpandMore, CheckCircle, Cancel, FilterList, ExpandLess, PlayArrow, Warning, OpenInNew, DeleteSweep
 } from '@mui/icons-material';
 import { updateRuleStats, applyRule } from '../utils/rules';
 
@@ -25,10 +26,12 @@ const RULE_TYPES = [
 ];
 
 function AIReviewView({ transactions, rules, onGenerateRules, onUpdateRules, onToggleRule, onDeleteRule, selectedTransactionIds = [] }) {
+  const navigate = useNavigate();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingRule, setEditingRule] = useState(null);
   const [expandedRuleId, setExpandedRuleId] = useState(null);
   const [filterCategory, setFilterCategory] = useState('all');
+  const [filterSubcategory, setFilterSubcategory] = useState('all');
   const [statsExpanded, setStatsExpanded] = useState(true);
   const [rulesExpanded, setRulesExpanded] = useState(true);
   const [testRuleDialog, setTestRuleDialog] = useState({
@@ -49,11 +52,27 @@ function AIReviewView({ transactions, rules, onGenerateRules, onUpdateRules, onT
     return ['all', ...Array.from(cats).sort()];
   }, [rulesWithStats]);
 
-  // Filter rules by category
-  const filteredRules = useMemo(() => {
-    if (filterCategory === 'all') return rulesWithStats;
-    return rulesWithStats.filter(r => r.category === filterCategory);
+  // Get unique subcategories from rules (filtered by selected category)
+  const subcategories = useMemo(() => {
+    let filteredRules = rulesWithStats;
+    if (filterCategory !== 'all') {
+      filteredRules = rulesWithStats.filter(r => r.category === filterCategory);
+    }
+    const subs = new Set(filteredRules.map(r => r.subcategory).filter(Boolean));
+    return ['all', ...Array.from(subs).sort()];
   }, [rulesWithStats, filterCategory]);
+
+  // Filter rules by category and subcategory
+  const filteredRules = useMemo(() => {
+    let result = rulesWithStats;
+    if (filterCategory !== 'all') {
+      result = result.filter(r => r.category === filterCategory);
+    }
+    if (filterSubcategory !== 'all') {
+      result = result.filter(r => r.subcategory === filterSubcategory);
+    }
+    return result;
+  }, [rulesWithStats, filterCategory, filterSubcategory]);
 
   // Stats and conflict detection
   const stats = useMemo(() => {
@@ -220,6 +239,26 @@ function AIReviewView({ transactions, rules, onGenerateRules, onUpdateRules, onT
       rule: rule,
       matches: matches
     });
+  };
+
+  const handleDeleteUnusedRules = () => {
+    const unusedRules = rulesWithStats.filter(r => (r.matchCount || 0) === 0);
+
+    if (unusedRules.length === 0) {
+      alert('No unused rules to delete. All rules have at least one match.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete ${unusedRules.length} rule${unusedRules.length !== 1 ? 's' : ''} with no matching transactions?\n\n` +
+      `Rules to be deleted:\n${unusedRules.map(r => `• ${r.name}`).join('\n')}`
+    );
+
+    if (confirmed) {
+      const unusedRuleIds = new Set(unusedRules.map(r => r.id));
+      const updatedRules = rules.filter(r => !unusedRuleIds.has(r.id));
+      onUpdateRules(updatedRules);
+    }
   };
 
   if (!rules) {
@@ -401,12 +440,25 @@ function AIReviewView({ transactions, rules, onGenerateRules, onUpdateRules, onT
             onChange={handleImportRules}
           />
         </Button>
+        {rulesWithStats.some(r => (r.matchCount || 0) === 0) && (
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<DeleteSweep />}
+            onClick={handleDeleteUnusedRules}
+          >
+            Delete Unused Rules
+          </Button>
+        )}
         <Box sx={{ ml: 'auto', display: 'flex', gap: 1, alignItems: 'center' }}>
           <Typography variant="body2" color="text.secondary">Filter:</Typography>
           <Select
             size="small"
             value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
+            onChange={(e) => {
+              setFilterCategory(e.target.value);
+              setFilterSubcategory('all'); // Reset subcategory when category changes
+            }}
             sx={{ minWidth: 150 }}
           >
             {categories.map(cat => (
@@ -415,6 +467,20 @@ function AIReviewView({ transactions, rules, onGenerateRules, onUpdateRules, onT
               </MenuItem>
             ))}
           </Select>
+          {subcategories.length > 1 && (
+            <Select
+              size="small"
+              value={filterSubcategory}
+              onChange={(e) => setFilterSubcategory(e.target.value)}
+              sx={{ minWidth: 150 }}
+            >
+              {subcategories.map(sub => (
+                <MenuItem key={sub} value={sub}>
+                  {sub === 'all' ? 'All Subcategories' : sub}
+                </MenuItem>
+              ))}
+            </Select>
+          )}
         </Box>
       </Paper>
 
@@ -452,10 +518,24 @@ function AIReviewView({ transactions, rules, onGenerateRules, onUpdateRules, onT
                     border: '1px solid',
                     borderColor: 'divider',
                     '&:before': { display: 'none' },
-                    opacity: rule.enabled ? 1 : 0.6
+                    opacity: rule.enabled ? 1 : 0.6,
+                    '&.Mui-expanded': {
+                      bgcolor: 'background.paper'
+                    }
                   }}
                 >
-                  <AccordionSummary expandIcon={<ExpandMore />}>
+                  <AccordionSummary
+                    expandIcon={<ExpandMore />}
+                    sx={{
+                      '&.Mui-expanded': {
+                        bgcolor: 'var(--accordion-expanded-bg, #f5f5f5) !important',
+                        minHeight: 48
+                      },
+                      '&:hover': {
+                        bgcolor: 'var(--accordion-hover-bg, #f8f9fa) !important'
+                      }
+                    }}
+                  >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%', pr: 2 }}>
                       <Switch
                         checked={rule.enabled}
@@ -487,7 +567,7 @@ function AIReviewView({ transactions, rules, onGenerateRules, onUpdateRules, onT
                             onClick={(e) => {
                               e.stopPropagation();
                               if (rule.matchCount > 0) {
-                                handleTestRule(rule);
+                                navigate(`/ai-review/${rule.id}`);
                               }
                             }}
                             sx={{ cursor: rule.matchCount > 0 ? 'pointer' : 'default' }}
@@ -606,17 +686,11 @@ function AIReviewView({ transactions, rules, onGenerateRules, onUpdateRules, onT
                                   label={conflictingRule.name}
                                   size="small"
                                   color="warning"
+                                  icon={<OpenInNew sx={{ fontSize: '0.75rem !important' }} />}
                                   sx={{ mr: 0.5, mb: 0.5, cursor: 'pointer' }}
                                   onClick={() => {
-                                    // Expand the conflicting rule
-                                    setExpandedRuleId(conflictId);
-                                    // Scroll to it
-                                    setTimeout(() => {
-                                      const element = document.getElementById(`rule-${conflictId}`);
-                                      if (element) {
-                                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                      }
-                                    }, 100);
+                                    // Open in new window
+                                    window.open(`/ai-review/${conflictId}`, '_blank');
                                   }}
                                 />
                               ) : null;

@@ -1,0 +1,13 @@
+TODO
+
+- be able to focus on one category and see it over time.
+- be able to see trends/moving average
+- the area chart looks strange
+
+
+- Error: 404 {"type":"error","error":{"type":"not_found_error","message":"model: claude-3-5-sonnet-20241022"},"request_id":"req_011CVCaodQb6k7PDtYdHqnHZ"}
+    at _APIError.generate (http://localhost:3001/node_modules/.vite/deps/@anthropic-ai_sdk.js?v=b1f4e297:103:14)
+    at Anthropic.makeStatusError (http://localhost:3001/node_modules/.vite/deps/@anthropic-ai_sdk.js?v=b1f4e297:4080:21)
+    at Anthropic.makeRequest (http://localhost:3001/node_modules/.vite/deps/@anthropic-ai_sdk.js?v=b1f4e297:4224:24)
+    at async generateRulesWithClaude (http://localhost:3001/src/utils/rules.js?t=1763340243098:259:20)
+    at async handleGenerateRules (http://localhost:3001/src/App.jsx?t=1763340243098:325:24)

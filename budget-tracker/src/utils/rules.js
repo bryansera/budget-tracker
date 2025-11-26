@@ -100,6 +100,39 @@ export function applyRule(transaction, rule) {
 }
 
 /**
+ * Calculate specificity score for a rule (higher = more specific)
+ */
+export function calculateRuleSpecificity(rule) {
+  let score = 0;
+
+  // Pattern length (longer = more specific)
+  if (typeof rule.pattern === 'string') {
+    score += rule.pattern.length * 2;
+
+    // Word count (more words = more specific)
+    const wordCount = rule.pattern.split(/\s+/).length;
+    score += wordCount * 10;
+  }
+
+  // Rule type specificity
+  const typeScores = {
+    'description_starts_with': 30,  // Most specific
+    'description_regex': 20,         // Can be very specific
+    'description_contains': 10,      // Less specific
+    'merchant': 15,                  // Medium specificity
+    'amount_range': 5                // Least specific
+  };
+  score += typeScores[rule.type] || 0;
+
+  // Subcategory adds specificity
+  if (rule.subcategory) {
+    score += 20;
+  }
+
+  return score;
+}
+
+/**
  * Apply all rules to a transaction, return best match
  */
 export function categorizeWithRules(transaction, rules) {
@@ -110,19 +143,24 @@ export function categorizeWithRules(transaction, rules) {
     if (match) {
       matches.push({
         ...match,
-        createdBy: rule.createdBy // Include createdBy for sorting
+        createdBy: rule.createdBy, // Include createdBy for sorting
+        specificity: calculateRuleSpecificity(rule)
       });
     }
   }
 
   if (matches.length === 0) return null;
 
-  // Prioritize user-created rules over AI rules, then by confidence
+  // Sort by: 1) createdBy (user first), 2) specificity (higher first), 3) confidence
   matches.sort((a, b) => {
     // User rules always come first
     if (a.createdBy === 'user' && b.createdBy !== 'user') return -1;
     if (a.createdBy !== 'user' && b.createdBy === 'user') return 1;
-    // If both same type, sort by confidence
+    // If both same creator type, sort by specificity
+    if (a.specificity !== b.specificity) {
+      return b.specificity - a.specificity;
+    }
+    // If same specificity, sort by confidence
     return b.confidence - a.confidence;
   });
   return matches[0];
@@ -472,7 +510,8 @@ export function updateRuleStats(rules, transactions) {
   rules.forEach(rule => {
     ruleStats[rule.id] = {
       matchCount: 0,
-      examples: []
+      examples: [],
+      specificity: calculateRuleSpecificity(rule)
     };
   });
 
@@ -493,7 +532,8 @@ export function updateRuleStats(rules, transactions) {
   return rules.map(rule => ({
     ...rule,
     matchCount: ruleStats[rule.id].matchCount,
-    examples: ruleStats[rule.id].examples
+    examples: ruleStats[rule.id].examples,
+    specificity: ruleStats[rule.id].specificity
   }));
 }
 
@@ -511,6 +551,111 @@ function extractMerchantName(description) {
   // Take first part before location info
   const parts = merchant.split(/\s+(?:IN|AT|ON)\s+/i);
   return parts[0].trim();
+}
+
+/**
+ * Check if two rules conflict (would match the same transactions)
+ */
+export function checkRuleConflict(rule1, rule2) {
+  // Same rule
+  if (rule1.id === rule2.id) return null;
+
+  // Only check pattern-based conflicts for string patterns
+  if (typeof rule1.pattern !== 'string' || typeof rule2.pattern !== 'string') {
+    return null;
+  }
+
+  const pattern1 = rule1.pattern.toUpperCase();
+  const pattern2 = rule2.pattern.toUpperCase();
+
+  // Check if patterns overlap based on rule types
+  let conflict = null;
+
+  // Contains checks
+  if (rule1.type === 'description_contains' && rule2.type === 'description_contains') {
+    if (pattern1.includes(pattern2)) {
+      conflict = {
+        type: 'subset',
+        message: `"${rule2.name}" pattern "${pattern2}" is contained in "${rule1.name}" pattern "${pattern1}"`,
+        moreSpecific: rule2.id,
+        lessSpecific: rule1.id
+      };
+    } else if (pattern2.includes(pattern1)) {
+      conflict = {
+        type: 'subset',
+        message: `"${rule1.name}" pattern "${pattern1}" is contained in "${rule2.name}" pattern "${pattern2}"`,
+        moreSpecific: rule1.id,
+        lessSpecific: rule2.id
+      };
+    }
+  }
+
+  // Starts with vs contains
+  if (rule1.type === 'description_starts_with' && rule2.type === 'description_contains') {
+    if (pattern1.includes(pattern2)) {
+      conflict = {
+        type: 'overlap',
+        message: `"${rule1.name}" (starts_with "${pattern1}") may overlap with "${rule2.name}" (contains "${pattern2}")`,
+        moreSpecific: rule1.id,
+        lessSpecific: rule2.id
+      };
+    }
+  }
+
+  if (rule2.type === 'description_starts_with' && rule1.type === 'description_contains') {
+    if (pattern2.includes(pattern1)) {
+      conflict = {
+        type: 'overlap',
+        message: `"${rule2.name}" (starts_with "${pattern2}") may overlap with "${rule1.name}" (contains "${pattern1}")`,
+        moreSpecific: rule2.id,
+        lessSpecific: rule1.id
+      };
+    }
+  }
+
+  // Add category mismatch warning
+  if (conflict && rule1.category !== rule2.category) {
+    conflict.categoryMismatch = true;
+    conflict.message += ` (Different categories: ${rule1.category} vs ${rule2.category})`;
+  }
+
+  return conflict;
+}
+
+/**
+ * Find all conflicts for a new rule against existing rules
+ */
+export function findRuleConflicts(newRule, existingRules, transactions = []) {
+  const conflicts = [];
+
+  existingRules.forEach(existingRule => {
+    const conflict = checkRuleConflict(newRule, existingRule);
+    if (conflict) {
+      // Test with actual transactions if provided
+      let overlapCount = 0;
+      if (transactions.length > 0) {
+        transactions.forEach(t => {
+          const match1 = applyRule(t, newRule);
+          const match2 = applyRule(t, existingRule);
+          if (match1 && match2) {
+            overlapCount++;
+          }
+        });
+      }
+
+      conflicts.push({
+        ...conflict,
+        conflictingRule: existingRule,
+        overlapCount,
+        specificity: {
+          new: calculateRuleSpecificity(newRule),
+          existing: calculateRuleSpecificity(existingRule)
+        }
+      });
+    }
+  });
+
+  return conflicts;
 }
 
 /**

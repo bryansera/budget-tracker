@@ -32,6 +32,8 @@ import SheetManager from './components/SheetManager';
 import ActivityLog from './components/ActivityLog';
 import TrendsView from './components/TrendsView';
 import AIReviewView from './components/AIReviewView';
+import RuleDetailView from './components/RuleDetailView';
+import StyleDebugger from './components/StyleDebugger';
 
 const theme = createTheme({
   palette: {
@@ -118,7 +120,10 @@ function App() {
   const [currentTab, setCurrentTabState] = useState(() => {
     // Initialize tab from URL
     const route = ROUTES.find(r => r.path === location.pathname);
-    return route ? route.tab : 0;
+    if (route) return route.tab;
+    // Handle /ai-review/:ruleId paths
+    if (location.pathname.match(/^\/ai-review\/[^/]+$/)) return 6;
+    return 0;
   });
   const [tabLoading, setTabLoading] = useState(false);
 
@@ -136,6 +141,10 @@ function App() {
     const route = ROUTES.find(r => r.path === location.pathname);
     if (route && route.tab !== currentTab) {
       setCurrentTabState(route.tab);
+    }
+    // Handle /ai-review/:ruleId paths
+    if (location.pathname.match(/^\/ai-review\/[^/]+$/)) {
+      setCurrentTabState(6);
     }
   }, [location.pathname]);
   const [activityLogs, setActivityLogs] = useState(() => {
@@ -1648,15 +1657,27 @@ function App() {
 
             {!tabLoading && currentTab === 6 && claudeApiKey && (
               // AI Review Tab
-              <AIReviewView
-                transactions={transactions}
-                rules={rules}
-                onGenerateRules={handleGenerateRules}
-                onUpdateRules={handleUpdateRules}
-                onToggleRule={handleToggleRule}
-                onDeleteRule={handleDeleteRule}
-                selectedTransactionIds={selectedTransactionIds}
-              />
+              location.pathname.match(/^\/ai-review\/([^/]+)$/) ? (
+                // Rule Detail View - extract ruleId from URL
+                <RuleDetailView
+                  transactions={transactions}
+                  rules={rules}
+                  onDeleteRule={handleDeleteRule}
+                  onUpdateRules={handleUpdateRules}
+                  ruleId={location.pathname.match(/^\/ai-review\/([^/]+)$/)?.[1]}
+                />
+              ) : (
+                // Main AI Review View
+                <AIReviewView
+                  transactions={transactions}
+                  rules={rules}
+                  onGenerateRules={handleGenerateRules}
+                  onUpdateRules={handleUpdateRules}
+                  onToggleRule={handleToggleRule}
+                  onDeleteRule={handleDeleteRule}
+                  selectedTransactionIds={selectedTransactionIds}
+                />
+              )
             )}
           </Container>
 
@@ -1864,6 +1885,9 @@ function App() {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Style Debugger - temporary tool for adjusting colors */}
+      <StyleDebugger />
     </ThemeProvider>
   );
 }
